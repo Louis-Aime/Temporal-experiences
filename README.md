@@ -29,5 +29,6 @@ wcal.toDateString(wdate)
 ```
 You may try with era to "A.S.", or suppress it; Try suppressing the `options`.
 Check that 1700 in protestant Germany was a leap year until February, but a common year in March and after.
-You may try B.C. years
-All method are not implemented here.
+You may try B.C. years.
+
+All method are not implemented in these classes. 
