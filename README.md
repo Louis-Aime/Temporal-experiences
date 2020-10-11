@@ -22,7 +22,7 @@ Use the web console.
 Exemple: 
 ```
 wcal = new WesternCalendar("1700-03-01", "Germany")
-options = {overflow : "reject"}
+options = {overflow : "constrain"}
 tsRecord = {year : 1700, month : 2, day : 28, era : "N.S."}
 wdate = wcal.dateFromFields(tsRecord, options)
 wcal.toDateString(wdate)
