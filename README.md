@@ -31,4 +31,8 @@ You may try with era to "A.S.", or suppress it; Try suppressing the `options`.
 Check that 1700 in protestant Germany was a leap year until February, but a common year in March and after.
 You may try B.C. years.
 
-All method are not implemented in these classes. 
+As of 2020-10-12: 
+* All expectped methods are implemented in MilesianCalendar class
+* In JulianCalendar and WesternCalendar, only Fields getter and initializers are implemented.
+
+ready-to-use environment: https://louis-de-fouquieres.pagesperso-orange.fr/Temporal/TemporalTries.html
