@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+	<!DOCTYPE html>
 <html>
   <head>
     <meta charset="utf-8">
@@ -7,10 +7,6 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/kognise/water.css@latest/dist/light.min.css">
     <script type="application/javascript" src="https://tc39.es/proposal-temporal/docs//playground.js"></script>
     <link rel="stylesheet" type="text/css" href="./prism.css">
-
-<!-- specific file -->
-	<script type="application/javascript" src="TemporalTries.js"></script>
-
     <script>
       Temporal = { ...temporal.Temporal };
       Object.assign(Intl, temporal.Intl);
@@ -137,13 +133,17 @@
       }
     </style>
 
+<!-- Milesian tries -->
+	<script type="application/javascript" src="Chronos.js"></script>
+	<script type="application/javascript" src="TemporalEnvironment.js"></script>
+	<script type="application/javascript" src="MilesianCalendar.js"></script>
+	<script type="application/javascript" src="JulianCalendar.js"></script>
+ 	<script type="application/javascript" src="WesternCalendar.js"></script> 
+ 	<script type="application/javascript" src="Calendars.js"></script> 
+	<script type="application/javascript" src="Examples.js"></script> 
 
   </head>
 <body>
-<h2>Temporal tries: use Temporal sand box environment and specific sources with the development console</h2>
-<p>You can instatiate: MilesianCalendar, JulianCalendar, WesternCalendar('dateString','name'). 
-For WesternCalendar, 'dateString' denotes the transition date to Gregorian, and 'name' a free name. 
-Hint: try MyCal = new WesternCalendar('1700-03-01','Germany') and use MyCal.toDateString(<i>date</i>) to see date elements.</p>
-
+<span>Temporal tries</span>
 </body>
 </html>
