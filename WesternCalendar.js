@@ -17,7 +17,8 @@ Contents:
 	method toDateString is added - just to facilitate control.
 Comments: JSDocs comments to be added.
 */
-/* Version	M2020-11-13 - eras in lowercase
+/* Version	M2020-11-13-2 - add getters. Add, subtract, difference, still  missing.
+	M2020-11-13 - eras in lowercase
 	M2020-10-19 original
 	Source: since 2017
 */
@@ -48,7 +49,7 @@ Inquiries: www.calendriermilesien.org
 */
 class WesternCalendar extends Temporal.Calendar { // here try to use other Temporal tools rather than basic Chronos tools, whenever possible.
 	constructor (switchingDate, name) {
-		super ("iso8601");
+		super ("gregory");
 		this.name = name;
 		// this.switchingDateIndex = JulianDayIso.toJulianDay (switchingDate.getISOFields());
 		this.switchingDate = Temporal.Date.from(switchingDate);	//first date where Gregorien calendar is used
@@ -83,8 +84,13 @@ class WesternCalendar extends Temporal.Calendar { // here try to use other Tempo
 				//let IsoFields = this.registerDate.getISOFields();
 				//this.registerDate = new Temporal.Date (IsoFields.isoYear, IsoFields.isoMonth, IsoFields.isoDay, this.gregorianCalendar);
 				//Object.assign (this.register, this.registerDate.getFields());
-				this.register.era = this.eras[2];
 				// delete this.register.calendar;	// avoid complications...
+				this.register.era = this.eras[2];
+				this.register.dayOfWeek = this.registerDate.dayOfWeek;
+				this.register.weekOfYear = this.registerDate.weekOfYear; 
+				this.register.dayOfYear = this.registerDate.dayOfYear;
+				this.register.daysInMonth = this.registerDate.daysInMonth;
+				this.register.daysInYear = this.registerDate.daysInYear
 				} 
 			else { // date components are Julian, declare "as" era in place of "ad" 
 				Object.assign (this.register, this.registerDate.withCalendar(this.julianCalendar).getFields()); 
@@ -92,6 +98,11 @@ class WesternCalendar extends Temporal.Calendar { // here try to use other Tempo
 				//this.registerDate = new Temporal.Date (IsoFields.isoYear, IsoFields.isoMonth, IsoFields.isoDay, this.julianCalendar);
 				//this.register = Object.assign (this.registerDate.getFields());
 				if (this.register.era == this.julianCalendar.eras[1]) this.register.era = this.eras[1];
+				this.register.dayOfWeek = date.withCalendar(this.julianCalendar).dayOfWeek;
+				this.register.weekOfYear = date.withCalendar(this.julianCalendar).weekOfYear; 
+				this.register.dayOfYear = date.withCalendar(this.julianCalendar).dayOfYear;
+				this.register.daysInMonth = date.withCalendar(this.julianCalendar).daysInMonth;
+				this.register.daysInYear = date.withCalendar(this.julianCalendar).daysInYear
 			}
 			// add other information in register
 		}
@@ -119,6 +130,30 @@ class WesternCalendar extends Temporal.Calendar { // here try to use other Tempo
 		this.updateRegister (date);
 		return this.register.day;
 		}
+	daysInWeek (date) {
+		this.updateRegister (date);
+		return 7;
+	}
+	dayOfWeek (date) {
+		this.updateRegister (date);
+		return this.register.dayOfWeek
+	}
+	weekOfYear (date) {
+		this.updateRegister (date);
+		return this.register.weekOfYear
+	}
+	dayOfYear (date) {
+		this.updateRegister (date);
+		return this.register.dayOfYear
+	}
+	daysInMonth (date) {
+		this.updateRegister (date);
+		return this.register.daysInMonth
+	}
+	daysInYear (date) {
+		this.updateRegister (date);
+		return this.register.daysInYear
+	}
 	inLeapYear (date) { // a same year, like 1700 for a switching date that year, may be leap at the begining, then common.
 		this.updateRegister (date);
 		let y = this.register.year;
