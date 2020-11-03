@@ -28,4 +28,5 @@ julian = new JulianCalendar ("julian");
 jul2 = new JulianCalendar ("jul2", 2, 5);
 vatican = new WesternCalendar ("1582-10-15","vatican");
 french = new WesternCalendar ("1582-12-20","frenchkingdom");
-german = new WesternCalendar ("1700-03-01","german");
+german = new WesternCalendar ("1700-03-01","germany");
+english = new WesternCalendar("1752-09-14","unitedkingdom");
