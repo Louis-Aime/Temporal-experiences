@@ -8,7 +8,8 @@ Contents:
 	method toDateString is added - just to facilitate control.
 Comments: JSDocs comments to be added.
 */
-/* Version M2020-11-12
+/* Version	M2020-11-13 - eras changed to lowercase characters
+	M2020-11-12 - Common version of Chronos
 	M2020-10-19 original
 	Source: since 2017
 */
@@ -59,7 +60,7 @@ class JulianCalendar extends Temporal.Calendar { // with "name"
 		  {cyclelength : 1, ceiling : Infinity, subCycleShift : 0, multiplier : 1, target : "day"}
 		],
 		canvas : [ 
-			{name : "relativeYear", init : 0},	// relativeYear is a signed integer, 0 meaning 1 BC
+			{name : "relativeYear", init : 0},	// relativeYear is a signed integer, 0 meaning 1 bc
 			{name : "month", init : 3}, // Shifted year begins with month number 3 (March), thus simplify month shifting
 			{name : "day", init : 1}
 		]
@@ -78,7 +79,7 @@ class JulianCalendar extends Temporal.Calendar { // with "name"
 	static invalidOption = new RangeError ("unknown option")
 	static outOfRangeDateElement = new RangeError ("date element out of range") // month or era out of specified range for calendar
 	static dateOverflow = new RangeError ("date overflow with reject option") // thrown in case of overflow : reject option
-	eras = ["BC", "AD"]
+	eras = ["bc", "ad"]	// basic codes for eras should always be in small letters
 	static originDate = Temporal.Date.from ("0000-02-28") // This information could be inserted into params object
 	register = { // Register of properties, modified only if date in parameter is changed
 		era : this.eras[0], year : 0, month : 0, day : 0, 		// fake initialisation to be changed by constructor

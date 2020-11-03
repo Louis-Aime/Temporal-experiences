@@ -9,9 +9,6 @@
 	Date conversion from the external world, or fields conversion without expressing the era, use this transition date.
 	Valid date object may be built overlaping the transition date but any N.S. date before 1582-10-15 shall be converted to A.S.
 	A.D. is always converted to A.S.
-Versions
-	Source: since 2017
-	M2020-10-19 original
 Required
 	?? Package Chronos -> the general calendar computation engine.
 	JulianCalendar
@@ -19,6 +16,10 @@ Contents:
 	JulianCalendar: an object (a variable, maybe later a class, with the property / method corresponding to the projected Temporal.Calendar canvas
 	method toDateString is added - just to facilitate control.
 Comments: JSDocs comments to be added.
+*/
+/* Version	M2020-11-13 - eras in lowercase
+	M2020-10-19 original
+	Source: since 2017
 */
 /* Copyright Miletus 2016-2020 - Louis A. de FOUQUIERES
 Permission is hereby granted, free of charge, to any person obtaining
@@ -63,7 +64,7 @@ class WesternCalendar extends Temporal.Calendar { // here try to use other Tempo
 	static unimplementedOption = new RangeError ("unimplemented option")
 	static outOfRangeDateElement = new RangeError ("date element out of range") // month or era out of specified range for calendar
 	static dateOverflow = new RangeError ("date overflow with reject option") // thrown in case of overflow : reject option
-	eras = ["BC", "AS", "NS"]
+	eras = ["bc", "as", "ns"]
 	// firstSwitchDateIndex = 2299161 
 	firstSwitchDate = Temporal.Date.from ("1582-10-15") // First date of A.S. or N.S. era
 	registerDate = Temporal.Date.from ("0000-01-01") // initiated with proleptic Gregorian origin, but changed by constructor.
@@ -85,7 +86,7 @@ class WesternCalendar extends Temporal.Calendar { // here try to use other Tempo
 				this.register.era = this.eras[2];
 				// delete this.register.calendar;	// avoid complications...
 				} 
-			else { // date components are Julian, declare "AS" era in place of "AD" 
+			else { // date components are Julian, declare "as" era in place of "ad" 
 				Object.assign (this.register, this.registerDate.withCalendar(this.julianCalendar).getFields()); 
 				//let IsoFields = this.registerDate.getISOFields();
 				//this.registerDate = new Temporal.Date (IsoFields.isoYear, IsoFields.isoMonth, IsoFields.isoDay, this.julianCalendar);
@@ -149,9 +150,9 @@ class WesternCalendar extends Temporal.Calendar { // here try to use other Tempo
 		/*	
 		If era is unspecified, first compare the Gregorian presentation to the switching date. 
 		If era specified, the caller knows what he wants, date is analysed following era indication, but result is aligned with present calendar.
-		If after, confirm "NS". If before, mark "AS"; "BC"  MUST be specified, negative years are rejected.
-		If era is specified, "AS"/"NS", analysis is guided by era specified, 
-		Range error is thrown for any "NS" date before 1582-10-15.
+		If after, confirm "ns". If before, mark "as"; "bc"  MUST be specified, negative years are rejected.
+		If era is specified, "as"/"ns", analysis is guided by era specified, 
+		Range error is thrown for any "ns" date before 1582-10-15.
 		*/	
 		// delete components.calendar;		// to avoid attemp to construct a wrong date - not all is implemented
 
@@ -182,11 +183,11 @@ class WesternCalendar extends Temporal.Calendar { // here try to use other Tempo
 			}
 			else {
 				let savera = components.era;	
-				if (components.era == this.eras[1]) components.era = this.julianCalendar.eras[1];	// "AS" is rejected with the plain julian calendar.
+				if (components.era == this.eras[1]) components.era = this.julianCalendar.eras[1];	// "as" is rejected with the plain julian calendar.
 				components.calendar = this.julianCalendar;
 				testDate = this.julianCalendar.dateFromFields (components, options);
 				// components = testDate.with({calendar : this.julianCalendar}).getFields(); // this.register 
-				components.era = savera; // retrieve "AS" if neededq
+				components.era = savera; // retrieve "as" if neededq
 			}
 	/* finalise: store real date and effective components */	
 		this.updateRegister (testDate); // the absolute date and the canonical presentation from testDate
