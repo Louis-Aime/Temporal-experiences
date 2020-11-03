@@ -3,15 +3,16 @@
 	The Milesian calendar as a Temporal, to be manually imported, set properties to object Date for the Milesian calendar.
 Required
 	Package Chronos
-	TemporalEnvironment: define monthBase and Julian Day computations
+	A file with dateEnvironment; an object with monthBase (0 or 1) and Julian Day computations
 Contents: 
 	MilesianCalendar: a subclass of Temporal.Calendar
 	method toDateString is added - just to facilitate control.
 Comments: JSDocs comments to improve.
 */
-/*Versions: M2020-11-06
-	Source: since 2017
+/*Versions: M2020-11-13 - dateEnvironment used
+	M2020-11-06
 	M2020-11-03
+	Source: since 2017
 */
 /* Copyright Miletus 2016-2020 - Louis A. de FOUQUIERES
 Permission is hereby granted, free of charge, to any person obtaining
@@ -43,7 +44,6 @@ class MilesianCalendar extends Temporal.Calendar {
 	}
 	/* Basics
 	*/
-	// monthBase = 1 	// Temporal convention, for use in controls
 	static invalidOption = new RangeError ("unknown option")
 	static dateUnderlow = new RangeError ("date element underflow")
 	static outOfRangeDateElement = new RangeError ("date element out of range") // month or era out of specified range for calendar
@@ -92,7 +92,7 @@ class MilesianCalendar extends Temporal.Calendar {
 			this.register = Object.assign (this.register, this.milesianClockwork.getObject (this.register.index));
 			// this.registerDate = Temporal.Date.from (date, {overflow : "reject"});
 			// Week figures computations.
-			let weekCharacFields = { year : this.register.year, month : this.monthBase, day : 7 },
+			let weekCharacFields = { year : this.register.year, month : dateEnvironment.monthBase, day : 7 },
 				weekCharacIndex = this.milesianClockwork.getNumber(weekCharacFields);	// Day index of one day in week 1 for this year
 			[this.register.weekOfYear, this.register.dayOfWeek, this.register.weekYearOffset, this.register.weeksInYear] 
 				= this.milesianClockwork.getWeekFigures (this.register.index, weekCharacIndex, this.register.year);
@@ -110,7 +110,7 @@ class MilesianCalendar extends Temporal.Calendar {
 			default : throw MilesianCalendar.invalidOption;
 		}
 		// NaN or non-integer shall be thrown in Chronos.
-		if (components.month < this.monthBase || components.month > this.monthBase + 11) throw MilesianCalendar.outOfRangeDateElement; // always reject months indication that cannot be handled
+		if (components.month < dateEnvironment.monthBase || components.month > dateEnvironment.monthBase + 11) throw MilesianCalendar.outOfRangeDateElement; // always reject months indication that cannot be handled
 		// if (components.day < 1) throw MilesianCalendar.dateUnderflow;
 		let overflow = 
 			components.day < 1
@@ -168,7 +168,7 @@ class MilesianCalendar extends Temporal.Calendar {
 	}
 	dayOfYear (date) {
 		this.updateRegister(date);
-		let m = this.register.month - this.monthBase;
+		let m = this.register.month - dateEnvironment.monthBase;
 		return this.register.day + 30*(m % 2) + 61*Math.floor (m/2)
 	}
 	weekOfYear (date) {	
@@ -185,7 +185,7 @@ class MilesianCalendar extends Temporal.Calendar {
 	}
 	daysInMonth (date) {
 		this.updateRegister(date);
-		let m = this.register.month - this.monthBase;
+		let m = this.register.month - dateEnvironment.monthBase;
 		return m % 2 == 0 ? 30 : ( m == 11 && !MilesianCalendar.internalIsLeapYear (this.register.year) ? 30 : 31)
 	}
 	monthsInYear (date) { return 12 }
@@ -213,9 +213,9 @@ class MilesianCalendar extends Temporal.Calendar {
 			months: duration.months, 
 			days: duration.weeks*this.daysInWeek() + myDuration.days}); // duration.days balanced with HMS of original duration
 		let components = {...this.register};
-		let addedYearMonth = Chronos.divmod ( this.register.month + duration.months - this.monthBase, 12 );
+		let addedYearMonth = Chronos.divmod ( this.register.month + duration.months - dateEnvironment.monthBase, 12 );
 		components.year += (duration.years + addedYearMonth[0]); 
-		components.month = addedYearMonth[1] + this.monthBase; 
+		components.month = addedYearMonth[1] + dateEnvironment.monthBase; 
 		// handle overflow option
 		if (myDuration.days == 0 && date.days == 31 
 			&& (components.month % 2 == 1 || (components.month == 12 && !MilesianCalendar.internalIsLeapYear(components.year))))
