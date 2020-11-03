@@ -1,5 +1,7 @@
 /* A selection of calendar for tries with Temporal
 */
+/*Version M2020-11-13	eras in lowercase
+*/
 /* uses: Chronos, MilesianCalendar, JulianCalendar, WesternCalendar
 */
 /* Copyright Miletus 2020 - Louis A. de FOUQUIERES
@@ -29,15 +31,15 @@ var
 	rm2 = { year : 325, month : 3, day : 21},
 	rm3 = { year : 325, month : 3, day : 30, calendar : milesian}
 	rm4 = { year : 2020, month : 10, day : 31, calendar : milesian}
-	rauc = { era : "BC", year : 753, month : 4, day : 21, calendar : julian },
-	rbc = { era : "BC", year : 1, month : 3, day : 1, calendar : julian },
+	rauc = { era : "bc", year : 753, month : 4, day : 21, calendar : julian },
+	rann = { era : "bc", year : 1, month : 3, day : 25, calendar : julian },
 	rinc = { year : 8, month : 8, day : 29, calendar : julian },
-	rheg = { year : 1, month : 1, day : 1, calendar : vatican },
-	r201 = { year : 201, month : 1, day : 15, calendar : julian },
-	rgreg = { year : 1582, month : 10, day : 4, calendar : vatican },
+	rchr = { year : 1, month : 1, day : 1, calendar : vatican },
+	r201 = { year : 201, month : 3, day : 1, calendar : julian },
+	rljul = { year : 1582, month : 10, day : 4, calendar : vatican },
 	rger = { year : 1700, month : 3, day : 1, calendar : german },
-	rshak = { era : "AS", year : 1616, month : 4, day : 23, calendar : german },
-	rcerv = { era : "NS", year : 1616, month : 4, day : 23, calendar : german };
+	rshak = { era : "as", year : 1616, month : 4, day : 23, calendar : english },
+	rcerv = { era : "ns", year : 1616, month : 4, day : 23, calendar : english };
 
 var 
 	pd1 = Temporal.Duration.from ("P1D"),
@@ -67,11 +69,11 @@ var
 	dm3 = Temporal.Date.from(rm3),
 	dm4 = Temporal.Date.from(rm4), 
 	dauc = Temporal.Date.from(rauc),
-	dbc = Temporal.Date.from(rbc),
+	dann = Temporal.Date.from(rann),
 	dinc = Temporal.Date.from(rinc),
-	dheg = Temporal.Date.from(rheg),
+	dchr = Temporal.Date.from(rchr),
 	d201 = Temporal.Date.from(r201),
-	dgreg = Temporal.Date.from(rgreg),
+	dljul = Temporal.Date.from(rljul),
 	dger = Temporal.Date.from(rger),
 	dshak = Temporal.Date.from(rshak),
 	dcerv = Temporal.Date.from(rcerv);
