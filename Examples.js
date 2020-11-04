@@ -93,6 +93,5 @@ var
 	om = { largestUnit : "month" },
 	oy = { largestUnit : "year" },
 	vc = { overflow : "constrain" },
-*/
 	vr = { overflow : "reject" },
 	vb = { overflow : "balance" };
