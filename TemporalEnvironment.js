@@ -2,5 +2,5 @@
 */
 const dateEnvironment = {
 	monthBase : 1,
-	isoJD : new JulianDayIso(1)	// Construction using monthBase == 0, i.e. number of first month in year is 0
+	isoJD : new JulianDayIso(1)	// the parameter is the number of the first month.
 }
