@@ -8,7 +8,8 @@ Contents:
 	method toDateString is added - just to facilitate control.
 Comments: JSDocs comments to be added.
 */
-/* Version	M2020-11-14 - improve and simplify dateAdd
+/* Version M2020-11-14-2 - Modify access to parameters of dateFromFields, yearMonthFromFields, monthDayFromFields
+	M2020-11-14 - improve and simplify dateAdd
 	M2020-11-13-2 use Chronos week handler, refer to "gregory", restructure comments
 	M2020-11-13 - eras changed to lowercase characters
 	M2020-11-12 - Common version of Chronos
@@ -157,7 +158,8 @@ class JulianCalendar extends Temporal.Calendar { // with "name"
 	 with the ISO representation.
 	*/ 
 	dateFromFields (askedComponents, options = {overflow : "constrain"}, Construct = Temporal.Date) {
-		var components = { ...askedComponents}; // options = {...askedOptions};
+		var components = { year : askedComponents.year, month : askedComponents.month, day : askedComponents.day }; 
+		if (askedComponents.era != undefined) components.era = askedComponents.era;
 		// check parameter values
 		switch (options.overflow) {
 			case undefined : options.overflow = "constrain"; 
@@ -191,15 +193,15 @@ class JulianCalendar extends Temporal.Calendar { // with "name"
 		return new Construct (isoFields.isoYear, isoFields.isoMonth, isoFields.isoDay, this); // standard return
 	}
 	yearMonthFromFields (askedComponents, askedOptions = {overflow : "constrain"}, Construct=Temporal.YearMonth) {
-		var components = { ...askedComponents}; 
-		components.day = 1; // set to the first day of month in Julian calendar
+		var components = { year : askedComponents.year, month : askedComponents.month, day : 1 }; // set to the first day of month in Julian calendar
+		if (askedComponents.era != undefined) components.era = askedComponents.era;
 		let myDate = this.dateFromFields(components, askedOptions);
 		let myISOFields = myDate.getISOFields(); // should be the calendar's field normalised, or with error thrown
 		return new Construct(myISOFields.isoYear, myISOFields.isoMonth, this, myISOFields.isoDay);
 	}
 	monthDayFromFields (askedComponents, askedOptions = {overflow : "constrain"}, Construct=Temporal.MonthDay) { // to be completed
-		var components = { ...askedComponents}; 
-		components.year = 2000;
+		var components = { year : 2000, month : askedComponents.month, day : askedComponents.day }; 
+		if (askedComponents.era != undefined) components.era = askedComponents.era;
 		let myDate = this.dateFromFields(components, askedOptions);
 		let myISOFields = myDate.getISOFields();
 		return new Construct(myISOFields.isoMonth, myISOFields.isoDay, this, myISOFields.isoYear);

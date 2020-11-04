@@ -6,7 +6,8 @@ Contents:
 	method toDateString is added - just to facilitate control.
 Comments: JSDocs comments to improve.
 */
-/* Version: M2020-11-14 - improve Duration methods
+/* Version M2020-11-14-2 - Modify access to parameters of dateFromFields, yearMonthFromFields, monthDayFromFields
+	M2020-11-14 - improve Duration methods
 	M2020-11-13-2 - make an autonomous class
 	M2020-11-13 - dateEnvironment used
 	M2020-11-06
@@ -107,8 +108,8 @@ class MilesianCalendar { /* does not extend Temporal.Calendar */
 	 Note that the Temporal.Date object shall be initiated 
 	 with the ISO representation.
 	*/ 
-	dateFromFields (askedComponents, askedOptions = {overflow : "constrain"}, Construct = Temporal.Date) {
-		var components = { ...askedComponents}, options = {...askedOptions};
+	dateFromFields (askedComponents, options = {overflow : "constrain"}, Construct = Temporal.Date) {
+		var components = { year : askedComponents.year, month : askedComponents.month, day : askedComponents.day }; 
 		switch (options.overflow) {
 			case undefined : options.overflow = "constrain"; 
 			case "constrain" : case "reject" : break;		// case "balance" is not authorised
@@ -134,15 +135,13 @@ class MilesianCalendar { /* does not extend Temporal.Calendar */
 		return new Construct (isoFields.isoYear, isoFields.isoMonth, isoFields.isoDay, this);
 	}
 	yearMonthFromFields (askedComponents, askedOptions = {overflow : "constrain"}, Construct=Temporal.YearMonth) {
-		var components = { ...askedComponents}; 
-		components.day = 13;	// Year and month for that day is always the same in Milesian and ISO 8601
+		var components = { year : askedComponents.year, month : askedComponents.month, day : 13 }; // Year and month for that day is always the same in Milesian and ISO 8601
 		let myDate = this.dateFromFields(components, askedOptions);
 		let myFields = myDate.getFields(); // should be the calendar's field normalised, or with error thrown
 		return new Construct(myFields.year, myFields.month, this, 13);
 	}
 	monthDayFromFields (askedComponents, askedOptions = {overflow : "constrain"}, Construct=Temporal.MonthDay) {
-		var components = { ...askedComponents}; 
-		components.year = 1999;		// a Milesian long year after Unix epoch, following the most complex rule
+		var components = { year : 1999, month : askedComponents.month, day : askedComponents.day }; // 1999 is a Milesian long year after Unix epoch, following the most complex rule
 		let myDate = this.dateFromFields(components, askedOptions);
 		let myFields = myDate.getISOFields();
 		return new Construct(myFields.isoMonth, myFields.isoDay, this, 1999);
