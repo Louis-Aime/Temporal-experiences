@@ -1,6 +1,6 @@
 /* A selection of calendar for tries with Temporal
-*/
-/*Version M2020-11-13	eras in lowercase
+/*Version	M2020-11-14 - add a few variables
+	M2020-11-13	eras in lowercase
 */
 /* uses: Chronos, MilesianCalendar, JulianCalendar, WesternCalendar
 */
@@ -29,34 +29,23 @@ Inquiries: www.calendriermilesien.org
 var
 	rm1 = { year : 201, month : 1, day : 15 },
 	rm2 = { year : 325, month : 3, day : 21},
-	rm3 = { year : 325, month : 3, day : 30, calendar : milesian}
-	rm4 = { year : 2020, month : 10, day : 31, calendar : milesian}
+	rm3 = { year : 325, month : 3, day : 30, calendar : milesian},
+	rm4 = { year : 2020, month : 10, day : 31, calendar : milesian},
+	r31 = { year : 1600, month : 1, day : 31, calendar : julian},
 	rauc = { era : "bc", year : 753, month : 4, day : 21, calendar : julian },
 	rann = { era : "bc", year : 1, month : 3, day : 25, calendar : julian },
 	rinc = { year : 8, month : 8, day : 29, calendar : julian },
 	rchr = { year : 1, month : 1, day : 1, calendar : vatican },
 	r201 = { year : 201, month : 3, day : 1, calendar : julian },
 	rljul = { year : 1582, month : 10, day : 4, calendar : vatican },
-	rger = { year : 1700, month : 3, day : 1, calendar : german },
+	rfgreg = { year : 1582, month : 10, day : 15, calendar : vatican },
+	rger1 = { year : 1700, month : 2, day : 18, calendar : german },
+	rger2 = { year : 1700, month : 3, day : 1, calendar : german },
+	rger3 = { year : 1700, month : 1, day : 28, calendar : german },
+	rger4 = { year : 1700, month : 3, day : 28, calendar : german },
 	rshak = { era : "as", year : 1616, month : 4, day : 23, calendar : english },
 	rcerv = { era : "ns", year : 1616, month : 4, day : 23, calendar : english };
 
-var 
-	pd1 = Temporal.Duration.from ("P1D"),
-	pd30 = Temporal.Duration.from ("P30D"),
-	pm1 = Temporal.Duration.from ("P1M"),
-	pm11 = Temporal.Duration.from ("P11M"),
-	py1 = Temporal.Duration.from ("P1Y"),
-	py4 = Temporal.Duration.from ("P4Y"),
-	pnm11 = Temporal.Duration.from ("-P11M");
-	
-var
-	oa = { largestUnit : "auto" },
-	od = { largestUnit : "day" },
-	ow = { largestUnit : "week" },
-	om = { largestUnit : "month" },
-	oy = { largestUnit : "year" };
-	
 var	
 	mdmlast = Temporal.MonthDay.from ({month : 12, day : 31, calendar : milesian}),
 	mdmun = Temporal.MonthDay.from ({month : 1, day : 12, calendar : milesian}),
@@ -68,12 +57,42 @@ var
 	dm2 = Temporal.Date.from(rm2),
 	dm3 = Temporal.Date.from(rm3),
 	dm4 = Temporal.Date.from(rm4), 
+	d31 = Temporal.Date.from(r31),
 	dauc = Temporal.Date.from(rauc),
 	dann = Temporal.Date.from(rann),
 	dinc = Temporal.Date.from(rinc),
 	dchr = Temporal.Date.from(rchr),
 	d201 = Temporal.Date.from(r201),
 	dljul = Temporal.Date.from(rljul),
-	dger = Temporal.Date.from(rger),
+	dfgreg = Temporal.Date.from(rfgreg),
+	dger1 = Temporal.Date.from(rger1),
+	dger2 = Temporal.Date.from(rger2),
+	dger3 = Temporal.Date.from(rger3),
+	dger4 = Temporal.Date.from(rger4),
 	dshak = Temporal.Date.from(rshak),
 	dcerv = Temporal.Date.from(rcerv);
+	
+var 
+	pd1 = Temporal.Duration.from ("P1D"),
+	pd3 = Temporal.Duration.from ("P3D"),
+	pd30 = Temporal.Duration.from ("P30D"),
+	pd40 = Temporal.Duration.from ("P40D"),
+	phd1 = Temporal.Duration.from("P1DT720H"),
+	pm1 = Temporal.Duration.from ("P1M"),
+	pm11 = Temporal.Duration.from ("P11M"),
+	pm13 = Temporal.Duration.from ("P13M"),
+	py1 = Temporal.Duration.from ("P1Y"),
+	py4 = Temporal.Duration.from ("P4Y"),
+	pnm1 = Temporal.Duration.from ("-P1M");
+	pnm13 = Temporal.Duration.from ("-P13M");
+	
+var
+	oa = { largestUnit : "auto" },
+	od = { largestUnit : "day" },
+	ow = { largestUnit : "week" },
+	om = { largestUnit : "month" },
+	oy = { largestUnit : "year" },
+	vc = { overflow : "constrain" },
+*/
+	vr = { overflow : "reject" },
+	vb = { overflow : "balance" };
