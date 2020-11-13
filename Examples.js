@@ -1,5 +1,6 @@
 /* A selection of calendar for tries with Temporal
-/*Version	M2020-11-14 - add a few variables
+/* Version	M2020-11-23 - adapt to new names in Temporal
+	M2020-11-14 - add a few variables
 	M2020-11-13	eras in lowercase
 */
 /* uses: Chronos, MilesianCalendar, JulianCalendar, WesternCalendar
@@ -30,7 +31,7 @@ var
 	rm1 = { year : 201, month : 1, day : 15 },
 	rm2 = { year : 325, month : 3, day : 21},
 	rm3 = { year : 325, month : 3, day : 30, calendar : milesian},
-	rm4 = { year : 2020, month : 10, day : 31, calendar : milesian},
+	rm4 = { year : -752, month : 4, day : 31, calendar : milesian},
 	r31 = { year : 1600, month : 1, day : 31, calendar : julian},
 	rauc = { era : "bc", year : 753, month : 4, day : 21, calendar : julian },
 	rann = { era : "bc", year : 1, month : 3, day : 25, calendar : julian },
@@ -47,30 +48,30 @@ var
 	rcerv = { era : "ns", year : 1616, month : 4, day : 23, calendar : english };
 
 var	
-	mdmlast = Temporal.MonthDay.from ({month : 12, day : 31, calendar : milesian}),
-	mdmun = Temporal.MonthDay.from ({month : 1, day : 12, calendar : milesian}),
-	mdmbis = Temporal.MonthDay.from ({month : 3, day : 9, calendar : milesian}),
-	ymmun = Temporal.YearMonth.from ({year : 2020, month : 1, calendar : milesian}),
-	ymms = Temporal.YearMonth.from ({year : 2018, month : 12, calendar : milesian}),
-	ymml = Temporal.YearMonth.from ({year : 2019, month : 12, calendar : milesian}),
-	dm1 = Temporal.Date.from(rm1),
-	dm2 = Temporal.Date.from(rm2),
-	dm3 = Temporal.Date.from(rm3),
-	dm4 = Temporal.Date.from(rm4), 
-	d31 = Temporal.Date.from(r31),
-	dauc = Temporal.Date.from(rauc),
-	dann = Temporal.Date.from(rann),
-	dinc = Temporal.Date.from(rinc),
-	dchr = Temporal.Date.from(rchr),
-	d201 = Temporal.Date.from(r201),
-	dljul = Temporal.Date.from(rljul),
-	dfgreg = Temporal.Date.from(rfgreg),
-	dger1 = Temporal.Date.from(rger1),
-	dger2 = Temporal.Date.from(rger2),
-	dger3 = Temporal.Date.from(rger3),
-	dger4 = Temporal.Date.from(rger4),
-	dshak = Temporal.Date.from(rshak),
-	dcerv = Temporal.Date.from(rcerv);
+	mdmlast = Temporal.PlainMonthDay.from ({month : 12, day : 31, calendar : milesian}),
+	mdmun = Temporal.PlainMonthDay.from ({month : 1, day : 12, calendar : milesian}),
+	mdmbis = Temporal.PlainMonthDay.from ({month : 3, day : 9, calendar : milesian}),
+	ymmun = Temporal.PlainYearMonth.from ({year : 2020, month : 1, calendar : milesian}),
+	ymms = Temporal.PlainYearMonth.from ({year : 2018, month : 12, calendar : milesian}),
+	ymml = Temporal.PlainYearMonth.from ({year : 2019, month : 12, calendar : milesian}),
+	dm1 = Temporal.PlainDate.from(rm1),
+	dm2 = Temporal.PlainDate.from(rm2),
+	dm3 = Temporal.PlainDate.from(rm3),
+	dm4 = Temporal.PlainDate.from(rm4), 
+	d31 = Temporal.PlainDate.from(r31),
+	dauc = Temporal.PlainDate.from(rauc),
+	dann = Temporal.PlainDate.from(rann),
+	dinc = Temporal.PlainDate.from(rinc),
+	dchr = Temporal.PlainDate.from(rchr),
+	d201 = Temporal.PlainDate.from(r201),
+	dljul = Temporal.PlainDate.from(rljul),
+	dfgreg = Temporal.PlainDate.from(rfgreg),
+	dger1 = Temporal.PlainDate.from(rger1),
+	dger2 = Temporal.PlainDate.from(rger2),
+	dger3 = Temporal.PlainDate.from(rger3),
+	dger4 = Temporal.PlainDate.from(rger4),
+	dshak = Temporal.PlainDate.from(rshak),
+	dcerv = Temporal.PlainDate.from(rcerv);
 	
 var 
 	pd1 = Temporal.Duration.from ("P1D"),
@@ -83,8 +84,10 @@ var
 	pm13 = Temporal.Duration.from ("P13M"),
 	py1 = Temporal.Duration.from ("P1Y"),
 	py4 = Temporal.Duration.from ("P4Y"),
-	pnm1 = Temporal.Duration.from ("-P1M");
-	pnm13 = Temporal.Duration.from ("-P13M");
+	pnm1 = Temporal.Duration.from ("-P1M"),
+	pnm13 = Temporal.Duration.from ("-P13M"),
+	py20 = Temporal.Duration.from ("P20Y"),
+	pCinderella = Temporal.Duration.from("P300Y");
 	
 var
 	oa = { largestUnit : "auto" },
