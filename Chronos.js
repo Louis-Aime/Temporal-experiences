@@ -24,10 +24,11 @@ const JulianDayIso
 	toJulianDay from ISO fields
 	toIsoFields from Julian Day
 */
-/* Versions: this M2020-11-12
-	Sources: Miletus CBCCZ 2017-2020 (defined the main algorithm, still unchanged)
-	Version 1 M2020-11-03
-	Version 2 M2020-11-09
+/* Version M2020-11-22 enhance comments
+	M2020-11-12 enhance week rules
+	M2020-11-09 enhance
+	M2020-11-03 first established as a class
+	Sources: Miletus CBCCE 2017-2020 (define the main algorithm, still unchanged)
 		Suppress shiftYearStart as method, shiftCycle is enough
 		Add const JulianDayIso: convert ISO dates from and to integer Julian Day
 */
@@ -56,8 +57,8 @@ Inquiries: www.calendriermilesien.org
 "use strict";
 class Chronos 	{	// Essential calendrical computations tools, including the Cycle Based Calendrical Computation Engine or CBCCE
 	/** Instantiate Chronos for calendar specific computations. Parameters are: calendar cycle structure, and week cycle structure. 
-	 * @param (Object) calendRule:  the cycle structure and intercalation rules of the calendar (see specific section hereunder)
-	 * @param (Object)	weekdayRule: set of parameter for the computation of weekday in this calendar (see specific seciont hereunder)
+	 * @param (Object)	calendRule:  the cycle structure and intercalation rules of the calendar (see specific section hereunder)
+	 * @param (Object)	weekdayRule: set of parameter for the computation of weekday in this calendar (see specific section hereunder)
 	*/
 	constructor (calendRule, weekdayRule) {
 		this.calendRule = calendRule;
@@ -168,10 +169,17 @@ class Chronos 	{	// Essential calendrical computations tools, including the Cycl
 		return Chronos.divmod (cycle * period + phase - cycleBase - shift, period).map
 				((value, index) => (index == 1 ? value + cycleBase + shift : value) )
 	}
-	/* most common leap year rules, applied to a year quantity */
+	/** Whether a year is a leap year in the Julian calendar, with the year origin Anno Domini as defined by Dionysius Exiguus in the 6th century. 
+	 * @param (number) a signed integer number representing the year. 0 means 1 B.C. and so on. Leap years, either positive or negative, are divisible by 4.
+	 * @return (boolean) true if year is a leap year i.e. there is a 29 February in this year.
+	 */
 	static isJulianLeapYear (year) {
 		return Chronos.mod (year, 4) == 0
 	}
+	/** Whether a year is a leap year in the Gregorian calendar, with the year origin Anno Domini as defined by Dionysius Exiguus in the 6th century. 
+	 * @param (number) a signed integer number representing the year. 0 means 1 B.C. Leap years, are either not divisible by 100 but by 4, or divisible by 400.
+	 * @return (boolean) true if year is a leap year i.e. there is a 29 February in this year.
+	 */
 	static isGregorianLeapYear (year) {
 		return Chronos.mod (year, 4) == 0 && (Chronos.mod(year, 100) != 0 || Chronos.mod(year, 400) ==0)
 	}
@@ -282,6 +290,9 @@ class Chronos 	{	// Essential calendrical computations tools, including the Cycl
 	}
 } // end of Chronos class
 class JulianDayIso { // Base functions for Temporal computations and iso8601 week computions. Instantiate with suitable monthBase (0 -> legacy date, 1 -> Temporal)
+	/**	Conversion routines between integer Julian Day number and date expressed in ISO format with isoYear, isoMonth, isoDay. User may choose the base for month number.
+	@param (number) monthBase : number for January, the first month. 0 for direct use with Date object, 1 for use with Temporal or with Miletus ExtDate and ExtDateTimeFormat.
+	*/
 	constructor (monthBase) {
 		this.monthBase = monthBase;	// value of the first month, 0 for "Date" style, 1 for "Temporal" style
 		this.clockwork = new Chronos ({
@@ -308,17 +319,35 @@ class JulianDayIso { // Base functions for Temporal computations and iso8601 wee
 			}
 		)
 	}
+	/** Compute Julian Day, an integer number for the date specified under ISO 8601. Julian Day 0 is -004713-11-24, or Monday 1 Jan. 4713 B.C. (julian calendar).
+	 * @param (Object): fields isoYear, isoMonth and isoDay must be specified as integer. isoMonth must lay in range 0..11 or 1..12, depending on monthBase specified at construction. 
+		if day is out of range of valid days for the month, date is balanced to the number of days out of the range.
+	 * @return (number): the Julian Day, an integer number meaning precisely this date à 12:00 UTC.
+	*/
 	toJulianDay = function ( isoFields ) {	// Julian Day (at noon UTC) from object containing isoYear, isoMonth, isoDay
 		let myFields = {...isoFields};
 		[myFields.isoYear, myFields.isoMonth] = Chronos.shiftCycle (isoFields.isoYear, isoFields.isoMonth, 12, 2, this.monthBase);
 		return this.clockwork.getNumber (myFields)
 	}
+	/** Compute ISO8601 date figures from an integer Julian Day. Julian Day 0 is -004713-11-24, or Monday 1 Jan. 4713 B.C. (julian calendar).
+	 * @param (number): the Julian Day, an integer number meaning precisely this date à 12:00 UTC.
+		if day is out of range of valid days for the month, date is balanced to the number of days out of the range.
+	 * @return (Object): fields isoYear, isoMonth and isoDay specify the date in ISO8601 calendar. isoMonth lays in range 0..11 or 1..12, depending on monthBase specified at construction.
+	*/
 	toIsoFields = function ( julianDay ) {	// Build compound ISO fields (at noon UTC) from a julian day
 		if (isNaN (julianDay) ) throw notANumber;
 		let myFields = this.clockwork.getObject (julianDay);
 		[myFields.isoYear, myFields.isoMonth] = Chronos.shiftCycle (myFields.isoYear, myFields.isoMonth, 12, -2, this.monthBase+2);
 		return myFields
 	}
+	/** Compute the week coordinates under ISO8601 rules for the date represented by the Julian Day.
+	 * @param (number) Julian Day that represents the date
+	 * @return (Object) 
+			weekYearOffset: add to isoYear to get the week year number (-1/0/1).
+			weekNumber: number of the week, 1..53 (only a few years have 53 weeks).
+			weekDay: number of the day of week, 1 for Monday, 7 for Sunday.
+			weeksInYear: number of weeks for this week year. This applies to the week year the date belongs to, not the isoYear.
+	*/
 	toIsoWeekFields = function ( julianDay ) { // ISO week coordinates from a Julian Day.
 		if (isNaN (julianDay) ) throw notANumber;
 		let myFields = this.toIsoFields (julianDay);
