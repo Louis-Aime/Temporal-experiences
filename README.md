@@ -8,15 +8,7 @@ Temporal polyfill as of 13 November 2020
 ## File contents
 The .js files consists in:
 * Chronos: utilities for calendrical computations, including the "Cycle Based Calendar Computation Engine".
-* TemporalEnvironment: defines that month begin with 1, and a converter between ISO8601 and Julian Day
-* MilesianCalendar, a class (not an extension) . It is a very simple solar calendar: 
-  * Years comprise 12 months of 30 or 31 days alternatively. 
-  * Years begin on 12-21 just before common years, or 12-22 just before leap years of the iso8601 calendar.
-* JulianCalendar extends TemporalCalendar. The plain Julian calendar as used in Europe until 1582. Two eras: `bc` and `ad` (default).
-* WesternCalendar extends TemporalCalendar. Instantiate with 
-   * the date string of the transition to Gregorian,
-   * a name for future use.
-* Calendars: several class objects and instantiated constant implementing Temporal functions in connection with Temporal.Calendar
+* Calendars: several class objects and instantiated constant implementing Temporal functions in connection with Temporal.Calendar.
 No calendar is defined as an extension of Temporal.Calendar
   * MilesianCalendar: a class defining the Milesian calendar computations (id="milesian")
   * JulianCalendar: a class for the Julian Calendar computations (id="julian")
@@ -26,8 +18,7 @@ No calendar is defined as an extension of Temporal.Calendar
   * vatican (id="vatican"): the calendar of the catholic church, that switched to Gregorian on 1582-10-15
   * french (id="french"): the calendar of France, that switched on 1582-12-20
   * german (id="german"): the calendar of most protestant german state, that swtiched on 1700-03-01. Test whether this year was a leap year or not...
-  * english (id="english"): the calendar of England, that switched on 1752-09-14.
-  
+  * english (id="english"): the calendar of England, that switched on 1752-09-14. 
 * Examples: a set of date fields,  dates, duration, to facilitate tests.
 
 The HTML files collects the TC39 Temporal environment.
