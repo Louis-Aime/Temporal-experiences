@@ -8,7 +8,8 @@ Contents:
 	method toDateString is added - just to facilitate control.
 Comments: JSDocs comments to be added.
 */
-/* Version M2020-11-14-2 - Modify access to parameters of dateFromFields, yearMonthFromFields, monthDayFromFields
+/* Version	M2020-11-23 - New names in Temporal. Replace monthBase with 1.
+	M2020-11-14-2 - Modify access to parameters of dateFromFields, yearMonthFromFields, monthDayFromFields
 	M2020-11-14 - improve and simplify dateAdd
 	M2020-11-13-2 use Chronos week handler, refer to "gregory", restructure comments
 	M2020-11-13 - eras changed to lowercase characters
@@ -69,7 +70,7 @@ class JulianCalendar extends Temporal.Calendar { // with "name"
 	static outOfRangeDateElement = new RangeError ("date element out of range") // month or era out of specified range for calendar
 	static dateOverflow = new RangeError ("date overflow with reject option") // thrown in case of overflow : reject option
 	static mixingCalendar = new TypeError ("until or since operation requires same calendar")
-	static originDate = Temporal.Date.from ("0000-02-28") // This information could be inserted into params object
+	static originDate = Temporal.PlainDate.from ("0000-02-28") // This information could be inserted into params object
 	julianClockwork = new Chronos ({ // To be used with day counter from Julian 0000-03-01 ie ISO 0000-02-28. Decompose into Julian years, months, date.
 		timeepoch : 1721118, // Julian day of 1 martius 0 i.e. 0000-02-28
 		coeff : [ 
@@ -82,7 +83,7 @@ class JulianCalendar extends Temporal.Calendar { // with "name"
 		],
 		canvas : [ 
 			{name : "relativeYear", init : 0},	// relativeYear is a signed integer, 0 meaning 1 bc
-			{name : "month", init : dateEnvironment.monthBase + 2}, // Shifted year begins with month number 3 (March), thus simplify month shifting
+			{name : "month", init : 3}, // Shifted year begins with month number 3 (March), thus simplify month shifting
 			{name : "day", init : 1}
 		]
 		}, // end of calendRule
@@ -107,7 +108,6 @@ class JulianCalendar extends Temporal.Calendar { // with "name"
 		Used for Julian-Gregorian calendrical computations. 
 			Shift (2, 0) replaces year 20 month 1 by year 19 month 13 and leaves year 20 month 6 unchanged.
 			Shift (-2, 2) comes back from year 19 month 13 to year 20 month 1.
-		dateEnvironment.monthBase is a global environement paramater, 0 for Date-style (Januray = 0), 1 for Temporal-style (Januray = 1)
 	 * @param {Object} dateFields: the set of original date fields, with .relativeYear and .month components.
 	 * @param {number} shift: the number of month to be shifted, e.g. 2 is: new relativeYear in March instead of Januray
 	 * @param (number) base: the months interval between standard new year and to-be-shifted, e.g. 2 if unshift from March to Januray is desired.
@@ -115,7 +115,7 @@ class JulianCalendar extends Temporal.Calendar { // with "name"
 	*/
 	shiftYearStart (dateFields, shift, base) { // Shift start of relativeYear to March, or back to January, for calendrical calculations
 		let shiftedFields = {...dateFields};
-		[ shiftedFields.relativeYear, shiftedFields.month ] = Chronos.shiftCycle (dateFields.relativeYear, dateFields.month, 12, shift, base + dateEnvironment.monthBase);
+		[ shiftedFields.relativeYear, shiftedFields.month ] = Chronos.shiftCycle (dateFields.relativeYear, dateFields.month, 12, shift, base + 1);
 		return shiftedFields
 	}
 	relativeYear (era, year) {
@@ -132,7 +132,7 @@ class JulianCalendar extends Temporal.Calendar { // with "name"
 		return  day < 1 || day > JulianCalendar.internalDaysInMonth(month, Chronos.isJulianLeapYear(relativeYear));
 	}
 	updateRegister (date) { // if date in parameter is different from last, update internal register to date given as a parameter.
-		let index = dateEnvironment.isoJD.toJulianDay (date.getISOFields());
+		let index = JDConvert.toJulianDay (date.getISOFields());
 		if (index !=  this.register.index) {
 			this.register.index = index;			// date.withCalendar("iso8601").since(JulianCalendar.originDate).days;
 			this.register = Object.assign ( this.register, this.shiftYearStart(this.julianClockwork.getObject (this.register.index),-2,2) );
@@ -144,20 +144,19 @@ class JulianCalendar extends Temporal.Calendar { // with "name"
 				};
 			this.register.inLeapYear = Chronos.isJulianLeapYear ( this.register.relativeYear );
 			// Week figures computations.
-			let weekCharacFields = { relativeYear : this.register.relativeYear, month : dateEnvironment.monthBase, day : this.w1Day },
+			let weekCharacFields = { relativeYear : this.register.relativeYear, month : 1, day : this.w1Day },
 				weekCharacIndex = this.julianClockwork.getNumber(this.shiftYearStart(weekCharacFields,2,0));	// Day index of characteristic day
 			[this.register.weekOfYear, this.register.dayOfWeek, this.register.weekYearOffset, this.register.weeksInYear] 
 				= this.julianClockwork.getWeekFigures (this.register.index, weekCharacIndex, this.register.relativeYear);
 			// dayOfYear
-			let caractDayFields = { relativeYear : this.register.relativeYear, month : dateEnvironment.monthBase, day : 0};		// this is new year's eve.
+			let caractDayFields = { relativeYear : this.register.relativeYear, month : 1, day : 0};		// this is new year's eve.
 			this.register.dayOfYear = this.register.index - this.julianClockwork.getNumber(this.shiftYearStart(caractDayFields,2,0));
 		};
 	}
 	/* Main date and Temporal objects generator from fields representing a Julian date. 
-	 Note that the Temporal.Date object shall be initiated 
-	 with the ISO representation.
+	 Note that the Temporal.xxxDatexxx object shall be initiated with the ISO representation.
 	*/ 
-	dateFromFields (askedComponents, options = {overflow : "constrain"}, Construct = Temporal.Date) {
+	dateFromFields (askedComponents, options, Construct=Temporal.PlainDate) { // options = {overflow : "constrain"}
 		var components = { year : askedComponents.year, month : askedComponents.month, day : askedComponents.day }; 
 		if (askedComponents.era != undefined) components.era = askedComponents.era;
 		// check parameter values
@@ -168,7 +167,7 @@ class JulianCalendar extends Temporal.Calendar { // with "name"
 			}
 		// check essential validity criteria. Note that user may either submit era and year, or submit year as a relative number, without era indication
 		if (components.year <= 0 && components.era != null) throw JulianCalendar.outOfRangeDateElement; // year may be negative only if era is not specified
-		if (components.month < dateEnvironment.monthBase || components.month > dateEnvironment.monthBase + 12) throw JulianCalendar.outOfRangeDateElement;
+		if (components.month < 1 || components.month > 12) throw JulianCalendar.outOfRangeDateElement;
 		// separate relative representation of years, compute date and save effective date fields
 		switch (components.era) {
 			case this.eras[0]: components.relativeYear = 1 - components.year; break; // translate to relative year counting 
@@ -189,24 +188,24 @@ class JulianCalendar extends Temporal.Calendar { // with "name"
 		}
 		// All controls done, now translate fields into day-index from epoch, then compute IsoFields. Do not update register !
 		let index = this.julianClockwork.getNumber(this.shiftYearStart(components,2,0)), // Translate Julian compound into julian Day...
-			isoFields = dateEnvironment.isoJD.toIsoFields (index);
+			isoFields = JDConvert.toIsoFields (index);
 		return new Construct (isoFields.isoYear, isoFields.isoMonth, isoFields.isoDay, this); // standard return
 	}
-	yearMonthFromFields (askedComponents, askedOptions = {overflow : "constrain"}, Construct=Temporal.YearMonth) {
+	yearMonthFromFields (askedComponents, askedOptions, Construct=Temporal.PlainYearMonth) {//askedOptions = {overflow : "constrain"}
 		var components = { year : askedComponents.year, month : askedComponents.month, day : 1 }; // set to the first day of month in Julian calendar
 		if (askedComponents.era != undefined) components.era = askedComponents.era;
 		let myDate = this.dateFromFields(components, askedOptions);
 		let myISOFields = myDate.getISOFields(); // should be the calendar's field normalised, or with error thrown
 		return new Construct(myISOFields.isoYear, myISOFields.isoMonth, this, myISOFields.isoDay);
 	}
-	monthDayFromFields (askedComponents, askedOptions = {overflow : "constrain"}, Construct=Temporal.MonthDay) { // to be completed
+	monthDayFromFields (askedComponents, askedOptions, Construct=Temporal.PlainMonthDay) { // askedOptions = {overflow : "constrain"}
 		var components = { year : 2000, month : askedComponents.month, day : askedComponents.day }; 
 		if (askedComponents.era != undefined) components.era = askedComponents.era;
 		let myDate = this.dateFromFields(components, askedOptions);
 		let myISOFields = myDate.getISOFields();
 		return new Construct(myISOFields.isoMonth, myISOFields.isoDay, this, myISOFields.isoYear);
 	}
-	/* Methods for Temporal.Date (and also for legacy Date)
+	/* Methods for Temporal.
 	*/
 	year (date) {
 		this.updateRegister (date);
@@ -268,14 +267,14 @@ class JulianCalendar extends Temporal.Calendar { // with "name"
 		this.updateRegister(date);	// Translate date as of present calendar
 		// 1. Build new date components from duration years and months
 		let components = {...this.register}; 
-		let addedYearMonth = Chronos.divmod ( this.register.month + duration.months - dateEnvironment.monthBase, 12 );
+		let addedYearMonth = Chronos.divmod ( this.register.month + duration.months - 1, 12 );
 		components.relativeYear += (duration.years + addedYearMonth[0]); 
-		components.month = addedYearMonth[1] + dateEnvironment.monthBase; 
+		components.month = addedYearMonth[1] + 1; 
 		components.year = components.relativeYear; delete components.era; // prepare to dateFromFields
 		// overflow option handled in trying to build new date
 		let dateOne = this.dateFromFields (components, options, Construct); // stated options will do the job
 		// 2. Add or subtract days to final result
-		let resultFields = dateEnvironment.isoJD.toIsoFields(dateEnvironment.isoJD.toJulianDay(dateOne.getISOFields()) + duration.weeks*this.daysInWeek(date) + duration.days);
+		let resultFields = JDConvert.toIsoFields(JDConvert.toJulianDay(dateOne.getISOFields()) + duration.weeks*this.daysInWeek(date) + duration.days);
 		return new Construct (resultFields.isoYear, resultFields.isoMonth, resultFields.isoDay, this)
 	}
 	dateSubtract (date, duration, options, Construct) {
@@ -289,7 +288,7 @@ class JulianCalendar extends Temporal.Calendar { // with "name"
 			case "years": case "months": case "weeks": case "days": break; // normally "weeks" should not be implemented
 			default : throw JulianCalendar.invalidOption
 		}
-		switch (Temporal.Date.compare(smaller, larger)) {
+		switch (Temporal.PlainDate.compare(smaller, larger)) {
 			case 1 : // 
 				let positiveDifference = this.dateUntil (larger, smaller, options);
 				return positiveDifference.negated(); break;

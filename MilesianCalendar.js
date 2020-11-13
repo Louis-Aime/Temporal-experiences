@@ -6,7 +6,8 @@ Contents:
 	method toDateString is added - just to facilitate control.
 Comments: JSDocs comments to improve.
 */
-/* Version M2020-11-14-2 - Modify access to parameters of dateFromFields, yearMonthFromFields, monthDayFromFields
+/* Version	M2020-11-23 - New names in Temporal. Replace monthBase with 1.
+	M2020-11-14-2 - Modify access to parameters of dateFromFields, yearMonthFromFields, monthDayFromFields
 	M2020-11-14 - improve Duration methods
 	M2020-11-13-2 - make an autonomous class
 	M2020-11-13 - dateEnvironment used
@@ -16,7 +17,7 @@ Comments: JSDocs comments to improve.
 */
 /* Required
 	Package Chronos
-	A file with dateEnvironment; an object with monthBase (0 or 1) and Julian Day computations
+	A file with dateEnvironment; an object with monthBase = 1 and Julian Day computations
 */
 /* Copyright Miletus 2016-2020 - Louis A. de FOUQUIERES
 Permission is hereby granted, free of charge, to any person obtaining
@@ -41,9 +42,8 @@ Inquiries: www.calendriermilesien.org
 */
 "use strict";
 class MilesianCalendar { /* does not extend Temporal.Calendar */  
-	constructor (name) {
+	constructor () {
 		this.id = "milesian";	// this is of the same level as i"so8601", "gregory" etc.
-		this.name = name;		// may provide an alernate name
 		this.updateRegister (MilesianCalendar.originDate); 	// Initiate register
 	}
 	/* Basics for interaction with Temporal objects (this.id is forced in constructor)
@@ -70,8 +70,8 @@ class MilesianCalendar { /* does not extend Temporal.Calendar */
 		  {cyclelength : 1, ceiling : Infinity, subCycleShift : 0, multiplier : 1, target : "day"}
 		],
 		canvas : [ 
-			{name : "year", init : 0},
-			{name : "month", init : dateEnvironment.monthBase},
+			{name : "year", init: 0},
+			{name : "month", init: 1},
 			{name : "day", init : 1}
 		]
 		},	// end of calendRule
@@ -87,28 +87,26 @@ class MilesianCalendar { /* does not extend Temporal.Calendar */
 		)	// end of parameter list
 	/* Internal objects: Origin date and last date worked out
 	*/
-	static originDate = Temporal.Date.from ("-000001-12-22") // This information should probably be part of params object
+	static originDate = Temporal.PlainDate.from ("-000001-12-22") // This information should probably be part of params object
 	register = {	//This internal objects avoids redoing computations at each call of properties for a same date.
 		year : 0, month : 1, day : 1, index : 0,	
 		weekOfYear : 0, dayOfWeek : 0, weekYearOffset : 0, weeksInYear : 0 }   
 	updateRegister (date) { // update internal register to date given as a parameter.
-		let index = dateEnvironment.isoJD.toJulianDay (date.getISOFields());
+		let index = JDConvert.toJulianDay (date.getISOFields());
 		if (index !=  this.register.index) {
 			this.register.index = index;
 			this.register = Object.assign (this.register, this.milesianClockwork.getObject (this.register.index));
-			// this.registerDate = Temporal.Date.from (date, {overflow : "reject"});
 			// Week figures computations.
-			let weekCharacFields = { year : this.register.year, month : dateEnvironment.monthBase, day : 7 },
+			let weekCharacFields = { year : this.register.year, month : 1, day : 7 },
 				weekCharacIndex = this.milesianClockwork.getNumber(weekCharacFields);	// Day index of one day in week 1 for this year
 			[this.register.weekOfYear, this.register.dayOfWeek, this.register.weekYearOffset, this.register.weeksInYear] 
 				= this.milesianClockwork.getWeekFigures (this.register.index, weekCharacIndex, this.register.year);
 		}
 	}
 	/* Main date and Temporal objects generator from fields representing a Milesian date. 
-	 Note that the Temporal.Date object shall be initiated 
-	 with the ISO representation.
+	 Note that the Temporal. object shall be initiated with the ISO representation.
 	*/ 
-	dateFromFields (askedComponents, options = {overflow : "constrain"}, Construct = Temporal.Date) {
+	dateFromFields (askedComponents, options, Construct=Temporal.PlainDate) { // no default value for options = {overflow : "constrain"}
 		var components = { year : askedComponents.year, month : askedComponents.month, day : askedComponents.day }; 
 		switch (options.overflow) {
 			case undefined : options.overflow = "constrain"; 
@@ -116,7 +114,7 @@ class MilesianCalendar { /* does not extend Temporal.Calendar */
 			default : throw MilesianCalendar.invalidOption;
 		}
 		// NaN or non-integer shall be thrown from Chronos.
-		if (components.month < dateEnvironment.monthBase || components.month > dateEnvironment.monthBase + 11) throw MilesianCalendar.outOfRangeDateElement; // always reject months indication that cannot be handled
+		if (components.month < 1 || components.month > 12) throw MilesianCalendar.outOfRangeDateElement; // always reject months indication that cannot be handled
 		// if (components.day < 1) throw MilesianCalendar.dateUnderflow;
 		let overflow = 
 			components.day < 1
@@ -131,22 +129,22 @@ class MilesianCalendar { /* does not extend Temporal.Calendar */
 		}
 		// compute index from elements, but do not save this date, nor the index.
 		let index = this.milesianClockwork.getNumber(components), // Date elements first tested.
-			isoFields = dateEnvironment.isoJD.toIsoFields (index);
+			isoFields = JDConvert.toIsoFields (index);
 		return new Construct (isoFields.isoYear, isoFields.isoMonth, isoFields.isoDay, this);
 	}
-	yearMonthFromFields (askedComponents, askedOptions = {overflow : "constrain"}, Construct=Temporal.YearMonth) {
+	yearMonthFromFields (askedComponents, askedOptions, Construct=Temporal.PlainYearMonth) { // askedOptions = {overflow : "constrain"}
 		var components = { year : askedComponents.year, month : askedComponents.month, day : 13 }; // Year and month for that day is always the same in Milesian and ISO 8601
 		let myDate = this.dateFromFields(components, askedOptions);
 		let myFields = myDate.getFields(); // should be the calendar's field normalised, or with error thrown
 		return new Construct(myFields.year, myFields.month, this, 13);
 	}
-	monthDayFromFields (askedComponents, askedOptions = {overflow : "constrain"}, Construct=Temporal.MonthDay) {
+	monthDayFromFields (askedComponents, askedOptions, Construct=Temporal.PlainMonthDay) { // askedOptions = {overflow : "constrain"}
 		var components = { year : 1999, month : askedComponents.month, day : askedComponents.day }; // 1999 is a Milesian long year after Unix epoch, following the most complex rule
 		let myDate = this.dateFromFields(components, askedOptions);
 		let myFields = myDate.getISOFields();
 		return new Construct(myFields.isoMonth, myFields.isoDay, this, 1999);
 	}
-	/* Methods for Temporal.Date (and also for legacy Date)
+	/* Methods for elements of date
 	*/
 	year (date) {
 		this.updateRegister (date);
@@ -172,7 +170,7 @@ class MilesianCalendar { /* does not extend Temporal.Calendar */
 	}
 	dayOfYear (date) {
 		this.updateRegister(date);
-		let m = this.register.month - dateEnvironment.monthBase;
+		let m = this.register.month - 1;
 		return this.register.day + 30*(m % 2) + 61*Math.floor (m/2)
 	}
 	weekOfYear (date) {	
@@ -189,7 +187,7 @@ class MilesianCalendar { /* does not extend Temporal.Calendar */
 	}
 	daysInMonth (date) {
 		this.updateRegister(date);
-		let m = this.register.month - dateEnvironment.monthBase;
+		let m = this.register.month - 1;
 		return m % 2 == 0 ? 30 : ( m == 11 && ! Chronos.isGregorianLeapYear (this.register.year + 1) ? 30 : 31)
 	}
 	monthsInYear (date) { return 12 }
@@ -204,17 +202,17 @@ class MilesianCalendar { /* does not extend Temporal.Calendar */
 	Overflow occurs there only if day number does not exist in targer month. In such a case, the "constrain" action is to set the day to the highest existing value.
 	Days elements are then added or subtracted to the JD index of the first target date to yield the final targer date.
 	*/
-	dateAdd (date, duration, options={overflow:"constrain"}, Construct) {// Add a +/- duration - 
+	dateAdd (date, duration, options, Construct) {// Add a +/- duration - // no default value options={overflow:"constrain"}
 		this.updateRegister(date);
 		// 1. Build new date components from duration years and months
 		let components = {...this.register};
-		let addedYearMonth = Chronos.divmod ( this.register.month + duration.months - dateEnvironment.monthBase, 12 );
+		let addedYearMonth = Chronos.divmod ( this.register.month + duration.months - 1, 12 );
 		components.year += (duration.years + addedYearMonth[0]); 
-		components.month = addedYearMonth[1] + dateEnvironment.monthBase; 
+		components.month = addedYearMonth[1] + 1; 
 		// dateFromFields shall handle overflow option
 		let dateOne = this.dateFromFields (components, options, Construct);
 		// 2. Add or subtract days to final result
-		let resultFields = dateEnvironment.isoJD.toIsoFields(dateEnvironment.isoJD.toJulianDay(dateOne.getISOFields()) + duration.weeks*this.daysInWeek(date) + duration.days);
+		let resultFields = JDConvert.toIsoFields(JDConvert.toJulianDay(dateOne.getISOFields()) + duration.weeks*this.daysInWeek(date) + duration.days);
 		return new Construct (resultFields.isoYear, resultFields.isoMonth, resultFields.isoDay, this)
 	}
 	dateSubtract (date, duration, options, Construct) {
@@ -222,13 +220,13 @@ class MilesianCalendar { /* does not extend Temporal.Calendar */
 		let myDuration = Temporal.Duration.from(duration).negated();
 		return this.dateAdd(date, myDuration, options, Construct) 
 	}
-	dateUntil (smaller, larger, options={largestUnit:"auto"}) { // name changed from "dateDifference"
-		if (smaller.calendar.name != larger.calendar.name) throw MilesianCalendar.mixingCalendar;
+	dateUntil (smaller, larger, options) { // no default value for options, was ={largestUnit:"auto"}
+		if (smaller.calendar.id != larger.calendar.id) throw MilesianCalendar.mixingCalendar;
 		switch (options.largestUnit) {
 			case "auto": case "years": case "months": case "weeks": case "days": break; // normally "weeks" should not be implemented
 			default : throw MilesianCalendar.invalidOption
 		}
-		switch (Temporal.Date.compare(smaller, larger)) {
+		switch (Temporal.PlainDate.compare(smaller, larger)) {
 			case 1 : // throw MilesianCalendar.invalidOrder; break;
 				let positiveDifference = this.dateUntil (larger, smaller, options);
 				return positiveDifference.negated(); break;
@@ -270,7 +268,7 @@ class MilesianCalendar { /* does not extend Temporal.Calendar */
 	toDateString (date) { // non standard
 		this.updateRegister (date);
 		let absYear = Math.abs(this.register.year);
-		return  "[" + this.name + "]" 
+		return  "[" + this.id + "]" 
 			+ this.register.day + " " + this.register.month + "m " 
 			+ ((this.register.year < 0) ? "-": "") 
 			+ ((absYear < 100) ? "0" : "") + ((absYear < 10) ? "0" : "") + absYear; 
