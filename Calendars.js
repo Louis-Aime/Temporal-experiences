@@ -223,7 +223,7 @@ class MilesianCalendar {
 					case "years" : return Temporal.Duration.from({years: yearDiff, months: monthDiff, days: dayDiff}); break;
 					case "months": return Temporal.Duration.from({months: yearDiff*12+monthDiff, days: dayDiff}); break;
 					case "weeks" : 
-						let weekDayCompound = Chronos.divmod (myDayOffset, smaller.daysInWeek());
+						let weekDayCompound = Chronos.divmod (myDayOffset, smaller.daysInWeek);
 						return Temporal.Duration.from({weeks : weekDayCompound[0], days : weekDayCompound[1]}); break;
 					case undefined : case "auto"  : 
 					case "days" : return Temporal.Duration.from({ days: myDayOffset }); break;
@@ -329,7 +329,7 @@ class JulianCalendar  {
 	fullFieldsFromDate (date) {	// compute all fields that characterise this date in this calendar, including week fields.
 		var index = TMAO.JDConvert.toJulianDay (date.getISOFields()),
 			fullFields = this.shiftYearStart(this.calendarClockwork.getObject(index),-2,2) ;
-		[ fields.era, fields.year ] = fields.fullYear < 1 ? [ this.eras[0], 1 - fields.fullYear ]: [ this.eras [1], fields.fullYear ];
+		[ fullFields.era, fullFields.year ] = fullFields.fullYear < 1 ? [ this.eras[0], 1 - fullFields.fullYear ]: [ this.eras [1], fullFields.fullYear ];
 		[fullFields.weekOfYear, fullFields.dayOfWeek, fullFields.weekYearOffset, fullFields.weeksInYear] = this.calendarClockwork.getWeekFigures 
 			(index,  this.calendarClockwork.getNumber(this.shiftYearStart({ fullYear : fullFields.fullYear, month : 1, day : this.w1Day },2,0)), fullFields.fullYear);
 		return fullFields;
@@ -480,7 +480,7 @@ class JulianCalendar  {
 					case "years" : return Temporal.Duration.from({years: yearDiff, months: monthDiff, days: dayDiff}); break;
 					case "months": return Temporal.Duration.from({months: yearDiff*12+monthDiff, days: dayDiff}); break;
 					case "weeks" : 
-						let weekDayCompound = Chronos.divmod (myDayOffset, smaller.daysInWeek());
+						let weekDayCompound = Chronos.divmod (myDayOffset, smaller.daysInWeek);
 						return Temporal.Duration.from({weeks : weekDayCompound[0], days : weekDayCompound[1]}); break;
 					case undefined : case "auto"  :
 					case "days"  : return Temporal.Duration.from({ days: myDayOffset }); break;
@@ -547,7 +547,10 @@ class WesternCalendar { // here try to use other Temporal tools rather than basi
 		}, // end of calendRule
 		{	// weekdayRule
 			originWeekday: 1, 		// weekday of Julian Day 0 is Monday
-			daysInYear: (year) => (Chronos.isGregorianLeapYear( year ) ? 366 : 365),		// leap year rule for this calendar
+			daysInYear: (year) => {	// this function differs from daysInYear designed hereunder, since here we aim at week computation only
+				if (year >= this.switchingDate.year) return (Chronos.isGregorianLeapYear( year ) ? 366 : 365)
+				else return (Chronos.isJullianLeapYear( year ) ? 366 : 365)
+				},
 			startOfWeek : 1,		// week start with 1 (Monday)
 			characWeekNumber : 1,	// we have a week 1 and the characteristic day for this week is 4 January.
 			dayBase : 1,			// use 1..7 display for weekday
@@ -645,7 +648,6 @@ class WesternCalendar { // here try to use other Temporal tools rather than basi
 				Object.assign (components, testDate.getFields());
 				// delete components.calendar;	// avoid complications
 				components.era = this.eras[2];
-				// this.register = this.registerDate.with({calendar : "gregory"}).getFields(); ???
 			} else { // Date without expressed era is before transition date
 				// components.era = this.julianCalendar.eras[1];  //for Julian calendar analysis
 				components.calendar = this.julianCalendar;
@@ -677,7 +679,7 @@ class WesternCalendar { // here try to use other Temporal tools rather than basi
 			|| components.day != finalFields.day ;
 		if (overflow && options.overflow == "reject") throw WesternCalendar.dateOverflow;
 		let isoFields = testDate.getISOFields();
-		return new Construct (isoFields.isoYear, isoFields.isoMonth, isoFields.isoDay, this)//this.registerDate.withCalendar(this);
+		return new Construct (isoFields.isoYear, isoFields.isoMonth, isoFields.isoDay, this)
 		}
 	yearMonthFromFields (askedComponents, askedOptions, Construct=Temporal.PlainYearMonth) {// askedOptions = {overflow : "constrain"}
 		var components = { year : askedComponents.year, month : askedComponents.month, day : 1 }; // set to the first day of month in Julian calendar
@@ -763,12 +765,19 @@ class WesternCalendar { // here try to use other Temporal tools rather than basi
 	}
 	monthsInYear (date) { return 12 }
 	inLeapYear (date) { // a same year, like 1700 for a switching date that year, may be leap at the begining, then common.
-		let fields = this.fieldsFromDate(date), y = fields.year;
-		switch (this.fields.era) {
-			case this.eras[0] : y = 1 - this.register.year;	// set y as an unambiguous year and continue
+		let y = date.year;
+		switch (date.era) {
+			case this.eras[0] : y = 1 - y;	// set y as an unambiguous year and continue
 			case this.eras[1] : return Chronos.isJulianLeapYear(y); 
-			case this.eras[2] : return Chronos.isGregorianLeapYear(y); ;
+			case this.eras[2] : return Chronos.isGregorianLeapYear(y);
 		}
+/*		let fields = this.fieldsFromDate(date), y = fields.year;
+		switch (fields.era) {
+			case this.eras[0] : y = 1 - y;	// set y as an unambiguous year and continue
+			case this.eras[1] : return Chronos.isJulianLeapYear(y); 
+			case this.eras[2] : return Chronos.isGregorianLeapYear(y);
+		}
+*/
 	}
 	/* Non standard week properties 
 	*/
@@ -837,7 +846,7 @@ class WesternCalendar { // here try to use other Temporal tools rather than basi
 					case "years" : return Temporal.Duration.from({years: yearDiff, months: monthDiff, days: dayDiff}); break;
 					case "months": return Temporal.Duration.from({months: yearDiff*12+monthDiff, days: dayDiff}); break;
 					case "weeks" : 
-						let weekDayCompound = Chronos.divmod (myDayOffset, smaller.daysInWeek());
+						let weekDayCompound = Chronos.divmod (myDayOffset, smaller.daysInWeek);
 						return Temporal.Duration.from({weeks : weekDayCompound[0], days : weekDayCompound[1]}); break;
 					case undefined : case "auto" : 
 					case "days"  : return Temporal.Duration.from({ days: myDayOffset }); break;
