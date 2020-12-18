@@ -1,6 +1,7 @@
 /* A selection of calendar for tries with Temporal
 */
-/* Version	M2020-11-26 - handle options at date initialisation, care for "compare" which requires egality in calendar in order to yield "0"
+/* Version	M2020-12-28 JulianCalendar.shiftYearStart as static method
+	M2020-11-26 - handle options at date initialisation, care for "compare" which requires egality in calendar in order to yield "0"
 	M2020-11-25 suppress registers, do not memorise former date computations.
 	M2020-11-23 - all calendars defined in the same file. Do not subclass basic calendars. Personal toDateString enhanced. Subtract method suppressed. No time method (no harm)
 */
@@ -304,7 +305,7 @@ class JulianCalendar  {
 	 * @param (number) base: the months interval between standard new year and to-be-shifted, e.g. 2 if unshift from March to Januray is desired.
 	 * @returns {Object} an object of same structure than dateFields, with "fullYear" and "month" fields updated.
 	*/
-	shiftYearStart (dateFields, shift, base) { // Shift start of fullYear to March, or back to January, for calendrical calculations
+	static shiftYearStart (dateFields, shift, base) { // Shift start of fullYear to March, or back to January, for calendrical calculations
 		let shiftedFields = {...dateFields};
 		[ shiftedFields.fullYear, shiftedFields.month ] = Chronos.shiftCycle (dateFields.fullYear, dateFields.month, 12, shift, base + 1);
 		return shiftedFields
@@ -322,16 +323,16 @@ class JulianCalendar  {
 	/* 	Calendar fields generator from any date and non-standard methods
 */
 	fieldsFromDate (date) {	// compute essential fields for  this calendar, after isoFields of any date. Week fields computed separately, on demand.
-		var fields = this.shiftYearStart(this.calendarClockwork.getObject(TMAO.JDConvert.toJulianDay (date.getISOFields())),-2,2);	// numeric fields, with fullYear
+		var fields = JulianCalendar.shiftYearStart(this.calendarClockwork.getObject(TMAO.JDConvert.toJulianDay (date.getISOFields())),-2,2);	// numeric fields, with fullYear
 		[ fields.era, fields.year ] = fields.fullYear < 1 ? [ this.eras[0], 1 - fields.fullYear ]: [ this.eras [1], fields.fullYear ];
 		return fields;
 	}
 	fullFieldsFromDate (date) {	// compute all fields that characterise this date in this calendar, including week fields.
 		var index = TMAO.JDConvert.toJulianDay (date.getISOFields()),
-			fullFields = this.shiftYearStart(this.calendarClockwork.getObject(index),-2,2) ;
+			fullFields = JulianCalendar.shiftYearStart(this.calendarClockwork.getObject(index),-2,2) ;
 		[ fullFields.era, fullFields.year ] = fullFields.fullYear < 1 ? [ this.eras[0], 1 - fullFields.fullYear ]: [ this.eras [1], fullFields.fullYear ];
 		[fullFields.weekOfYear, fullFields.dayOfWeek, fullFields.weekYearOffset, fullFields.weeksInYear] = this.calendarClockwork.getWeekFigures 
-			(index,  this.calendarClockwork.getNumber(this.shiftYearStart({ fullYear : fullFields.fullYear, month : 1, day : this.w1Day },2,0)), fullFields.fullYear);
+			(index,  this.calendarClockwork.getNumber(JulianCalendar.shiftYearStart({ fullYear : fullFields.fullYear, month : 1, day : this.w1Day },2,0)), fullFields.fullYear);
 		return fullFields;
 	}
 	fullYear (date) {
@@ -371,7 +372,7 @@ class JulianCalendar  {
 				components.day = Math.min (components.day, JulianCalendar.internalDaysInMonth (components.month, Chronos.isJulianLeapYear (components.year)));
 		}
 		// All controls done, now translate fields into day-index from epoch and then to IsoFields, and construct PlainDate.
-		let isoFields = TMAO.JDConvert.toIsoFields (this.calendarClockwork.getNumber(this.shiftYearStart(components,2,0)));
+		let isoFields = TMAO.JDConvert.toIsoFields (this.calendarClockwork.getNumber(JulianCalendar.shiftYearStart(components,2,0)));
 		return new Construct (isoFields.isoYear, isoFields.isoMonth, isoFields.isoDay, this); // standard return
 	}
 	yearMonthFromFields (askedComponents, askedOptions, Construct=Temporal.PlainYearMonth) {//askedOptions = {overflow : "constrain"}
@@ -404,7 +405,7 @@ class JulianCalendar  {
 		return this.fullFieldsFromDate (date).dayOfWeek
 	}
 	dayOfYear (date) {
-		return TMAO.JDConvert.toJulianDay (date.getISOFields()) - this.julianClockwork.getNumber(this.shiftYearStart({ fullYear : this.fullYear(date), month : 1, day : 0},2,0));
+		return TMAO.JDConvert.toJulianDay (date.getISOFields()) - this.julianClockwork.getNumber(JulianCalendar.shiftYearStart({ fullYear : this.fullYear(date), month : 1, day : 0},2,0));
 	}
 	weekOfYear (date) {
 		return this.fullFieldsFromDate (date).weekOfYear
@@ -460,7 +461,7 @@ class JulianCalendar  {
 			case -1 :{
 				let myLarger = { fullYear : larger.calendar.fullYear(larger), month : larger.month, day : larger.day },
 					mySmaller = { fullYear : smaller.calendar.fullYear(smaller), month : smaller.month, day : smaller.day },
-					myDayOffset = this.calendarClockwork.getNumber(this.shiftYearStart (myLarger,2,0)) - this.calendarClockwork.getNumber(this.shiftYearStart (mySmaller,2,0)),
+					myDayOffset = this.calendarClockwork.getNumber(JulianCalendar.shiftYearStart (myLarger,2,0)) - this.calendarClockwork.getNumber(JulianCalendar.shiftYearStart (mySmaller,2,0)),
 					myWeekOffset = 0, withhold = 0, dayDiff = 0, monthDiff=0, yearDiff=0;
 	/* How to handle end of month ?
 	It could seem more logical to distinguish between 30 == last day of month, and 30 == not the last one
@@ -582,7 +583,7 @@ class WesternCalendar { // here try to use other Temporal tools rather than basi
 			fullFields = this.fieldsFromDate (date);
 		if (index >= this.switchingJD)	// Own computation of full figures, because week has a small problem, and maybe new fields will appear next.
 			[fullFields.weekOfYear, fullFields.dayOfWeek, fullFields.weekYearOffset, fullFields.weeksInYear] = this.gregorianClockwork.getWeekFigures 
-				(index, this.gregorianClockwork.getNumber(this.shiftYearStart({ fullYear : fullFields.fullYear, month : 1, day : this.w1Day },2,0)), fields.fullYear)
+				(index, this.gregorianClockwork.getNumber(JulianCalendar.shiftYearStart({ fullYear : fullFields.fullYear, month : 1, day : this.w1Day },2,0)), fullFields.fullYear)
 		else {
 			let julianFields = this.julianCalendar.fullFieldsFromDate(date);
 			[fullFields.weekOfYear, fullFields.dayOfWeek, fullFields.weekYearOffset, fullFields.weeksInYear] = 
