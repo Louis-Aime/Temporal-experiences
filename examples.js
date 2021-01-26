@@ -44,7 +44,7 @@ var
 	rger1 = { year : 1700, month : 2, day : 18, calendar : german },
 	rger2 = { year : 1700, month : 3, day : 1, calendar : german },
 	rger3 = { year : 1700, month : 1, day : 28, calendar : german },
-	rger4 = { era : "bc", year : -752, month : 4, day : 21, calendar : german },
+	rger4 = { era : "bc", year : 753, month : 4, day : 21, calendar : german },
 	rshak = { era : "as", year : 1616, month : 4, day : 23, calendar : english },
 	rcerv = { era : "ns", year : 1616, month : 4, day : 23, calendar : english };
 
@@ -91,11 +91,11 @@ var
 	pCinderella = Temporal.Duration.from("P300Y");
 	
 var
-	lua = { largestUnit : "auto" },
-	lud = { largestUnit : "days" },
-	luw = { largestUnit : "weeks" },
-	lum = { largestUnit : "months" },
-	luy = { largestUnit : "years" },
+	lua = { largestUnit : "auto", smallestUnit : "days" },
+	lud = { largestUnit : "days", smallestUnit : "days" },
+	luw = { largestUnit : "weeks", smallestUnit : "days" },
+	lum = { largestUnit : "months", smallestUnit : "days" },
+	luy = { largestUnit : "years", smallestUnit : "days" },
 	vc = { overflow : "constrain" },
 	vr = { overflow : "reject" },
 	vb = { overflow : "balance" };
