@@ -1,5 +1,6 @@
 /* A selection of calendar for tries with Temporal
-/* Version	M2020-11-23 - adapt to new names in Temporal
+/* Version	M2021-02-03	use year and eraYear
+	M2020-11-23 - adapt to new names in Temporal
 	M2020-11-14 - add a few variables
 	M2020-11-13	eras in lowercase
 */
@@ -33,7 +34,7 @@ var
 	rm3 = { year : 325, month : 3, day : 30, calendar : milesian},
 	rm4 = { year : -752, month : 4, day : 31, calendar : milesian},
 	r31 = { year : 1600, month : 1, day : 31, calendar : julian},
-	rauc = { era : "bc", year : 753, month : 4, day : 21, calendar : julian },
+	rauc = { era : "bc", year : -752, month : 4, day : 21, calendar : julian },
 	rann = { era : "bc", year : 1, month : 3, day : 25, calendar : julian },
 	rinc = { year : 8, month : 8, day : 29, calendar : julian },
 	rchr = { year : 1, month : 1, day : 1, calendar : vatican },
@@ -90,11 +91,11 @@ var
 	pCinderella = Temporal.Duration.from("P300Y");
 	
 var
-	lua = { largestUnit : "auto" },
-	lud = { largestUnit : "days" },
-	luw = { largestUnit : "weeks" },
-	lum = { largestUnit : "months" },
-	luy = { largestUnit : "years" },
+	lua = { largestUnit : "auto", smallestUnit : "days" },
+	lud = { largestUnit : "days", smallestUnit : "days" },
+	luw = { largestUnit : "weeks", smallestUnit : "days" },
+	lum = { largestUnit : "months", smallestUnit : "days" },
+	luy = { largestUnit : "years", smallestUnit : "days" },
 	vc = { overflow : "constrain" },
 	vr = { overflow : "reject" },
 	vb = { overflow : "balance" };
