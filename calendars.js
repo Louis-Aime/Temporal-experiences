@@ -8,13 +8,15 @@
 	M2020-11-23 - all calendars defined in the same file. Do not subclass basic calendars. Personal toDateString enhanced. Subtract method suppressed. No time method (no harm)
 */
 /* Version note
-year and eraYear are 2 possible fields date fields given by the calendar reckoning system.
-In this version, year is the algebraic signed integer value of the year, without hole, used in all computations,
-whereas eraYear denotes the integer value associated with an era indication.
-It is deemed that [era, eraYear] is never required on input, whereas year is required (except for MonthDay).
+See https://github.com/tc39/proposal-temporal/... #1231, #1235, #1306, #1307, #1308, #1310
+#1231 specifically defines year vs [era, eraYear]
+year and eraYear are 2 possible fields date fields given by the calendar reckoning system. 
+	year is the algebraic signed integer value of the year, without hole, used in all computations,
+	whereas eraYear denotes the integer value associated with an era indication.
+It is deemed that either [era, eraYear], or [year] is required on input, whereas year is required (except for MonthDay).
 In this version, because Temporal polyfill requires year in all cases, the following assumption is made:
 	If era is specified but eraYear is not, year stands for eraYear.
-	Here, for Roman calendars a control is performed if year and eraYear are specified: then era must also be specified, and all those value have to match.
+	Here, for Roman calendars a control is performed if year and [era, eraYear] are specified: then all those value have to match.
 */
 /* Required: 
 	Chronos.js
@@ -229,7 +231,7 @@ class MilesianCalendar {
 			case 1 : // throw MilesianCalendar.invalidOrder; break;
 				let positiveDifference = this.dateUntil (larger, smaller, options);
 				return positiveDifference.negated(); break;
-			case 0 : return Temporal.Duration("P0D"); break;
+			case 0 : return Temporal.Duration.from("P0D"); break;
 			case -1 :
 				let myLarger = { year : larger.year, month : larger.month, day : larger.day },
 					mySmaller = { year : smaller.year, month : smaller.month, day : smaller.day },
@@ -402,8 +404,8 @@ class JulianCalendar  {
 	eraYear (date) {
 		return this.fieldsFromDate(date).eraYear;
 	}
-	year (date) {
-		return this.fieldsFromDate(date).year;
+	year (date) { // Temporary comforms to what happens as long as eraYear is not an output
+		return this.fieldsFromDate(date).eraYear;
 		}
 	month (date) {
 		return this.fieldsFromDate(date).month;
@@ -450,7 +452,7 @@ class JulianCalendar  {
 	*/
 	dateAdd (date, duration, options, Construct) {// Add a +/- duration - // options={overflow:"constrain"} not used
 		// 1. Build new date components from duration years and months
-		let components = this.fieldsFromDate(date); 
+		let components = this.fieldsFromDate(date); // here year is the algebraic version
 		let addedYearMonth = Chronos.divmod ( components.month + duration.months - 1, 12 );
 		components.year += (duration.years + addedYearMonth[0]); 
 		components.month = addedYearMonth[1] + 1; 
@@ -466,10 +468,10 @@ class JulianCalendar  {
 			case 1 : // 
 				let positiveDifference = this.dateUntil (larger, smaller, options);
 				return positiveDifference.negated(); break;
-			case 0 : return Temporal.Duration("P0D"); break;
+			case 0 : return Temporal.Duration.from("P0D"); break;
 			case -1 :{
-				let myLarger = { year : larger.year, month : larger.month, day : larger.day },
-					mySmaller = { year : smaller.year, month : smaller.month, day : smaller.day },
+				let myLarger = this.fieldsFromDate (larger),	// because larger.year may be not adequate { year : larger.year, month : larger.month, day : larger.day },
+					mySmaller = this.fieldsFromDate (smaller),
 					myDayOffset = this.calendarClockwork.getNumber(JulianCalendar.shiftYearStart (myLarger,2,0)) - this.calendarClockwork.getNumber(JulianCalendar.shiftYearStart (mySmaller,2,0)),
 					myWeekOffset = 0, withhold = 0, dayDiff = 0, monthDiff=0, yearDiff=0;
 	/* How to handle end of month ?
@@ -666,14 +668,12 @@ class WesternCalendar { // here try to use other Temporal tools rather than basi
 	yearMonthFromFields (askedComponents, options, Construct=Temporal.PlainYearMonth) {// options = {overflow : "constrain"}
 		var components = { year : askedComponents.year, month : askedComponents.month, day : 1 }; // set to the first day of month in Julian calendar
 		if (askedComponents.era != undefined) components.era = askedComponents.era;
-		let myDate = this.dateFromFields(components, options);
-		let myISOFields = myDate.getISOFields(); // should be the calendar's field normalised, or with error thrown
+		let myISOFields = this.dateFromFields(components, options).getISOFields(); // should be the calendar's field normalised, or with error thrown
 		return new Construct(myISOFields.isoYear, myISOFields.isoMonth, this, myISOFields.isoDay);
 	}
 	monthDayFromFields (askedComponents, options, Construct=Temporal.PlainMonthDay) { // options = {overflow : "constrain"}
 		var components = { year : 2000, month : askedComponents.month, day : askedComponents.day }; 
-		let myDate = this.dateFromFields(components, options);
-		let myISOFields = myDate.getISOFields();
+		let myISOFields = this.dateFromFields(components, options).getISOFields();
 		return new Construct(myISOFields.isoMonth, myISOFields.isoDay, this, myISOFields.isoYear);
 	}
 	/* Methods for Temporal date-like properties
@@ -681,11 +681,11 @@ class WesternCalendar { // here try to use other Temporal tools rather than basi
 	era (date) { 
 		return this.fieldsFromDate(date).era 
 	}
-	eraYear (date) { // Compute unambiguous signed year 
+	eraYear (date) {
 		return this.fieldsFromDate(date).eraYear
 	}
-	year (date) {
-		return this.fieldsFromDate(date).year
+	year (date) { // is eraYear in this version.
+		return this.fieldsFromDate(date).eraYear
 	}
 	month (date) {
 		return this.fieldsFromDate(date).month
@@ -805,10 +805,10 @@ class WesternCalendar { // here try to use other Temporal tools rather than basi
 			case 1 : // 
 				let positiveDifference = this.dateUntil (larger, smaller, options);
 				return positiveDifference.negated(); break;
-			case 0 : return Temporal.Duration("P0D"); break;
+			case 0 : return Temporal.Duration.from("P0D"); break;
 			case -1 :{
-				let myLarger = { year : larger.calendar.year(larger), month : larger.month, day : larger.day },
-					mySmaller = { year : smaller.calendar.year(smaller), month : smaller.month, day : smaller.day },
+				let myLarger  = this.fieldsFromDate (larger), // like in JulianCalendar
+					mySmaller = this.fieldsFromDate (smaller), // { year : smaller.calendar.year(smaller), month : smaller.month, day : smaller.day },
 					myDayOffset = JDISO.toCounter(larger.getISOFields()) - JDISO.toCounter(smaller.getISOFields()),
 					myWeekOffset = 0, withhold = 0, dayDiff = 0, monthDiff=0, yearDiff=0;
 	/* 
