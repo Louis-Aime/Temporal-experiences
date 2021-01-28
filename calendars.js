@@ -1,6 +1,7 @@
 /* A selection of calendar for tries with Temporal
 */
-/* Version	M2021-02-03	New Temporal, no date.getFields, enforece year / eraYear fields
+/* Version	M2021-02-09	waiting for first implementation of all ICU https://github.com/tc39/proposal-temporal/pull/1245
+	M2021-02-03	New Temporal, no date.getFields, enforce year / eraYear fields
 	M2020-01-19 Adapt to newer version of chronos.js, file names in lowercase
 	M2020-12-28 JulianCalendar.shiftYearStart as static method
 	M2020-11-26 - handle options at date initialisation, care for "compare" which requires egality in calendar in order to yield "0"
@@ -8,14 +9,14 @@
 	M2020-11-23 - all calendars defined in the same file. Do not subclass basic calendars. Personal toDateString enhanced. Subtract method suppressed. No time method (no harm)
 */
 /* Version note
-See https://github.com/tc39/proposal-temporal/... #1231, #1235, #1306, #1307, #1308, #1310
+New Temporal (https://github.com/tc39/proposal-temporal/pull/1245) checks year vs [era, eraYear] fields, and wants a function for .era, .eraYear and .monthCode
+See also https://github.com/tc39/proposal-temporal/... #1231, #1235, #1306, #1307, #1308, #1310
+In this version: mergeField not yet defined.
 #1231 specifically defines year vs [era, eraYear]
 year and eraYear are 2 possible fields date fields given by the calendar reckoning system. 
 	year is the algebraic signed integer value of the year, without hole, used in all computations,
 	whereas eraYear denotes the integer value associated with an era indication.
 It is deemed that either [era, eraYear], or [year] is required on input, whereas year is required (except for MonthDay).
-In this version, because Temporal polyfill requires year in all cases, the following assumption is made:
-	If era is specified but eraYear is not, year stands for eraYear.
 	Here, for Roman calendars a control is performed if year and [era, eraYear] are specified: then all those value have to match.
 */
 /* Required: 
@@ -73,6 +74,14 @@ class MilesianCalendar {
 	/* Basics for interaction with Temporal objects (this.id is forced in constructor)
 	*/
 	toString () {return this.id}
+	mergeFields (fields, additionalFields) {	// monthCode converted to month ; [era, eraYera] shall throw [year] out
+		if ('monthCode' in additionalFields && 'month' in additionalFields) throw MilesianCalendar.ambiguousElement; // Checked by Temporal objects ?
+		if ('monthCode' in additionalFields) {
+			additionalFields.month =  Number(additionalFields.monthCode.split('m')[0]);	// extract numeric part of month code
+			delete additionalFields.monthCode;	//
+		}
+		return Object.assign(fields, additionalFields)
+	}
 	fields (theFields) {return theFields} // nothing to add to the standard fields year, month, day
 	static from (thing) {return Temporal.Calendar.from(thing)}	// This should not be used, but just in case.
 	/* Basic calendar-specific objects 
@@ -166,43 +175,29 @@ class MilesianCalendar {
 	}
 	/* Methods for elements of date
 	*/
-	year (date) {
-		return this.fieldsFromDate(date).year
-	}
-	month (date) {
-		return this.fieldsFromDate(date).month
-	}
-	day (date) {
-		return this.fieldsFromDate(date).day
-		}
+	era (date) {return undefined}
+	eraYear (date) {return undefined}
+	year (date) { return this.fieldsFromDate(date).year }
+	month (date) { return this.fieldsFromDate(date).month }
+	monthCode (date) {return this.fieldsFromDate(date).month + "m"}
+	day (date) { return this.fieldsFromDate(date).day }
 	daysInWeek (date) {return 7}
-	dayOfWeek (date) {
-		return this.fullFieldsFromDate(date).dayOfWeek
-	}
-	daysInYear (date){
-		return (this.inLeapYear(date) ? 366 : 365) 
-	}
-	dayOfYear (date) {
+	dayOfWeek (date) { return this.fullFieldsFromDate(date).dayOfWeek }
+	daysInYear (date){ return (this.inLeapYear(date) ? 366 : 365) }
+	dayOfYear (date) { 
 		let fields = this.fieldsFromDate(date), m = fields.month - 1;
 		return fields.day + 30*(m % 2) + 61*Math.floor (m/2)
 	}
-	weekOfYear (date) {	
-		return this.fullFieldsFromDate(date).weekOfYear
-	} 
-	daysInMonth (date) {
+	weekOfYear (date) { return this.fullFieldsFromDate(date).weekOfYear } 
+	daysInMonth (date) { 
 		let fields = this.fieldsFromDate(date), m = fields.month - 1;
 		return m % 2 == 0 ? 30 : ( m == 11 && ! Chronos.isGregorianLeapYear (fields.year + 1) ? 30 : 31)
 	}
 	monthsInYear (date) { return 12 }
-	inLeapYear (date) {
-		return Chronos.isGregorianLeapYear (this.fieldsFromDate(date).year + 1)
-	}
+	inLeapYear (date) { return Chronos.isGregorianLeapYear (this.fieldsFromDate(date).year + 1) }
 	/* Non standard week properties 
 	*/
-	weeksInYear (date) {
-		let fields = this.fullFieldsFromDate(date);
-		return fields.weeksInYear
-	}
+	weeksInYear (date) { return this.fullFieldsFromDate(date).weeksInYear }
 	yearOfWeek (date)	{	// Proposal. Year in the week's calendar corresponding to weekOfYear of the date
 		let fields = this.fullFieldsFromDate(date);
 		return fields.year + fields.weekYearOffset
@@ -264,9 +259,7 @@ class MilesianCalendar {
 			break; // just to close case -1
 		}
 	}
-	/* Non standard display method
-	*/
-	toDateString (date) { // non standard
+	toDateString (date) { // non standard display method
 		let fields = this.fullFieldsFromDate(date);
 		let absYear = Math.abs(fields.year);
 		return  "[" + this.id + "] " 
@@ -287,6 +280,18 @@ class JulianCalendar  {
 	/* Basics for interaction with Temporal objects (this.id is forced in constructor)
 	*/
 	toString () {return this.id}
+	mergeFields (fields, additionalFields) {	// monthCode converted to month ; [era, eraYera] shall throw [year] out
+		if ('monthCode' in additionalFields && 'month' in additionalFields) throw JulianCalendar.ambiguousElement; // Checked by Temporal objects ?
+		if ('monthCode' in additionalFields) {
+			additionalFields.month =  +additionalFields.monthCode;
+			delete additionalFields.monthCode;	//
+		}
+		if (('year' in additionalFields && ('era' in additionalFields || 'eraYear' in additionalFields))
+			|| 'era' in additionalFields != 'eraYear' in additionalFields) throw JulianCalendar.ambiguousElement; // Checked by Temporal objects ?
+		if ('era' in additionalFields) delete fields.year;
+		if ('year' in additionalFields) { delete fields.era; delete fields.earYear }
+		return Object.assign(fields, additionalFields)
+	}
 	fields (theFields) {	// For Temporal: add "era", and see whether one may leave it undefined.
 		let myFields = [...theFields];	// a brand new Array
 		if (myFields.includes ("year")) {
@@ -345,10 +350,10 @@ class JulianCalendar  {
 			return false;	// year must be defined in some way
 		if (components.era == undefined && components.eraYear != undefined) return false;	// if era not defined, eraYear should not be used
 		if ( components.year != undefined && components.eraYear != undefined && 
-			components.year != components.eraYear && (components.era != eras[0] || components.year != 1 - components.eraYear) )
+			components.year != components.eraYear && (components.era != BCEra || components.year != 1 - components.eraYear) )
 			return false;	// Year indications contradict each other
-		if (components.era == BCEra && components.year > 0) components.year = 1 - components.year;	// Here user specified a backwards counted year
-		if (components.year == undefined) components.year = components.era == BCEra ? 1 - components.eraYear : eraYear;
+		// if (components.era == BCEra && components.year > 0) components.year = 1 - components.year;	// Here user specified a backwards counted year
+		if (components.year == undefined) components.year = components.era == BCEra ? 1 - components.eraYear : components.eraYear;
 		return true
 	}
 	fieldsFromDate (date) {	// compute essential fields for  this calendar, after isoFields of any date. Week fields computed separately, on demand.
@@ -398,42 +403,25 @@ class JulianCalendar  {
 	}
 	/* Methods for Temporal date-like properties
 	*/
-	era (date) { 
-		return this.fieldsFromDate(date).era 
-		}
-	eraYear (date) {
-		return this.fieldsFromDate(date).eraYear;
-	}
-	year (date) { // Temporary comforms to what happens as long as eraYear is not an output
-		return this.fieldsFromDate(date).eraYear;
-		}
-	month (date) {
-		return this.fieldsFromDate(date).month;
-		}
-	day (date) {
-		return this.fieldsFromDate(date).day;
-		}
-	dayOfWeek (date) {
-		return this.fullFieldsFromDate (date).dayOfWeek
-	}
-	dayOfYear (date) {
+	era (date) { return this.fieldsFromDate(date).era }
+	eraYear (date) { return this.fieldsFromDate(date).eraYear }
+	year (date) { return this.fieldsFromDate(date).year }
+	month (date) { return this.fieldsFromDate(date).month }
+	monthCode (date) { return String (this.fieldsFromDate(date).month) }
+	day (date) { return this.fieldsFromDate(date).day }
+	dayOfWeek (date) { return this.fullFieldsFromDate (date).dayOfWeek }
+	dayOfYear (date) { 
 		return JDISO.toCounter (date.getISOFields()) - this.julianClockwork.getNumber(JulianCalendar.shiftYearStart({ year : this.year(date), month : 1, day : 0},2,0));
 	}
-	weekOfYear (date) {
-		return this.fullFieldsFromDate (date).weekOfYear
-	}
+	weekOfYear (date) { return this.fullFieldsFromDate (date).weekOfYear }
 	daysInWeek (date) { return 7 }
 	daysInMonth (date) {
 		let fields = this.fieldsFromDate(date);
 		return JulianCalendar.internalDaysInMonth (fields.month, Chronos.isJulianLeapYear(fields.year))
 	}
-	daysInYear (date){
-		return (this.inLeapYear(date) ? 366 : 365) 
-	}
+	daysInYear (date){ return (this.inLeapYear(date) ? 366 : 365) }
 	monthsInYear (date) { return 12 }
-	inLeapYear (date) {
-		return Chronos.isJulianLeapYear ( this.fieldsFromDate(date).year )
-		}
+	inLeapYear (date) { return Chronos.isJulianLeapYear ( this.fieldsFromDate(date).year ) }
 	/* Non standard week properties 
 	*/
 	weeksInYear (date) { // This function is not yet foreseen in Temporal. How many weeks in this (week) year ? 52 or 53 ?
@@ -501,9 +489,7 @@ class JulianCalendar  {
 			}
 		}
 	}
-	/* Non standard display method
-	*/
-	toDateString (date) { // non standard
+	toDateString (date) { // non standard display method
 		let fields = this.fieldsFromDate (date);
 		return  "[" + this.id + "] " + fields.day + "/" + fields.month + "/" 
 				+ (fields.year) + " " + fields.era;
@@ -523,6 +509,18 @@ class WesternCalendar { // here try to use other Temporal tools rather than basi
 	/* Basics for interaction with Temporal objects
 	*/
 	toString() {return this.id}	// necessary for subclasses, in order to get id passed as a parameter
+	mergeFields (fields, additionalFields) {	// monthCode converted to month ; [era, eraYera] shall throw [year] out
+		if ('monthCode' in additionalFields && 'month' in additionalFields) throw JulianCalendar.ambiguousElement; // Checked by Temporal objects ?
+		if ('monthCode' in additionalFields) {
+			additionalFields.month =  +additionalFields.monthCode;
+			delete additionalFields.monthCode;	//
+		}
+		if (('year' in additionalFields && ('era' in additionalFields || 'eraYear' in additionalFields))
+			|| 'era' in additionalFields != 'eraYear' in additionalFields) throw JulianCalendar.ambiguousElement; // Checked by Temporal objects ?
+		if ('era' in additionalFields) delete fields.year;
+		if ('year' in additionalFields) { delete fields.era; delete fields.earYear }
+		return Object.assign(fields, additionalFields)
+	}
 	fields (theFields) {	// For Temporal. add "era" if not seen
 		let myFields = [...theFields];	// a brand new Array
 		if (myFields.includes ("year")) {
@@ -678,35 +676,22 @@ class WesternCalendar { // here try to use other Temporal tools rather than basi
 	}
 	/* Methods for Temporal date-like properties
 	*/
-	era (date) { 
-		return this.fieldsFromDate(date).era 
-	}
-	eraYear (date) {
-		return this.fieldsFromDate(date).eraYear
-	}
-	year (date) { // is eraYear in this version.
-		return this.fieldsFromDate(date).eraYear
-	}
-	month (date) {
-		return this.fieldsFromDate(date).month
-		}
-	day (date) {
-		return this.fieldsFromDate(date).day
-		}
-	dayOfWeek (date) {
-		return this.fullFieldsFromDate(date).dayOfWeek
-	}
+	era (date) { return this.fieldsFromDate(date).era }
+	eraYear (date) { return this.fieldsFromDate(date).eraYear }
+	year (date) { return this.fieldsFromDate(date).year }
+	month (date) { return this.fieldsFromDate(date).month }
+	monthCode (date) { return String (this.fieldsFromDate(date).month) }
+	day (date) { return this.fieldsFromDate(date).day }
+	dayOfWeek (date) { return this.fullFieldsFromDate(date).dayOfWeek }
 	dayOfYear (date) { 
 		return 1 + JDISO.toCounter (date.getISOFields()) - JDISO.toCounter (this.dateFromFields ({ year : this.year(date), month : 1, day : 1}).getISOFields());
 	}
-	weekOfYear (date) {
-		return this.fullFieldsFromDate(date).weekOfYear
-	}
+	weekOfYear (date) { return this.fullFieldsFromDate(date).weekOfYear }
 	daysInWeek (date) { return 7 }
-	daysInMonth (date) { 
+	daysInMonth (date) { // this one is complicated: it handles the case of the month where the switchover to Gregorian calendar occurs
 		var index = JDISO.toCounter (date.getISOFields()),
 			fields = this.fieldsFromDate(date), 
-			lastJulianFields = {year : this.year(this.lastJulianDate), month : this.lastJulianDate.month },
+			lastJulianFields = {year : this.lastJulianDate.year, month : this.lastJulianDate.month },
 			firstGregorianFields = this.switchingDate.getISOFields(), //year : this.switchingDate.isoYear, month : this.switchingDate.isoMonth
 			firstInSwitchingMonth = this.dateFromFields ({day : 1, month : lastJulianFields.month, year : lastJulianFields.year }),
 			lastAfterSwitching = this.dateFromFields 
@@ -739,7 +724,7 @@ class WesternCalendar { // here try to use other Temporal tools rather than basi
 			return JulianCalendar.internalDaysInMonth (fields.month, Chronos.isJulianLeapYear(fields.year))
 			else return date.withCalendar("gregory").daysInMonth
 	}
-	daysInYear (date) { //
+	daysInYear (date) { // compute from 1 Jan. until 31 Dec. of this year
 		let fields = this.fieldsFromDate(date),
 			dur = this.dateUntil (
 				this.dateFromFields({year : fields.year, month : 1, day : 1}),
@@ -838,9 +823,7 @@ class WesternCalendar { // here try to use other Temporal tools rather than basi
 			}
 		}
 	}
-	/* Non standard display method
-	*/
-	toDateString (date) { // non standard
+	toDateString (date) { // non standard display method
 		let fields = this.fieldsFromDate(date);
 		return "[" + this.id + "] " + fields.day + "/" + fields.month + "/" 
 			+ (fields.year) + " " + fields.era 
