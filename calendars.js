@@ -1,6 +1,13 @@
 /* A selection of calendar for tries with Temporal
 */
-/* Version	M2021-02-09	waiting for first implementation of all ICU https://github.com/tc39/proposal-temporal/pull/1245
+/* Version	M2021-02-30 After the change of code for eras of the gregory calendar: 
+		develop a monthCode method
+		use "e0", "e1", "e2" as era codes, where "e0" means that years are counted backwards starting with 1 before epoch (1-y style)
+		establish mergeFields(), update fields()
+		update consistency tests of input data for dateFromFields
+		update daysInMonth, daysInYear, dayOfYear: make computation at construction and simplify run-time computing
+		add a "swiss" calendar where switching date is 1701-01-12 (no 1 Jan. this year in Switzerland)
+	M2021-02-09	waiting for first implementation of all ICU https://github.com/tc39/proposal-temporal/pull/1245
 	M2021-02-03	New Temporal, no date.getFields, enforce year / eraYear fields
 	M2020-01-19 Adapt to newer version of chronos.js, file names in lowercase
 	M2020-12-28 JulianCalendar.shiftYearStart as static method
@@ -11,13 +18,11 @@
 /* Version note
 New Temporal (https://github.com/tc39/proposal-temporal/pull/1245) checks year vs [era, eraYear] fields, and wants a function for .era, .eraYear and .monthCode
 See also https://github.com/tc39/proposal-temporal/... #1231, #1235, #1306, #1307, #1308, #1310
-In this version: mergeField not yet defined.
-#1231 specifically defines year vs [era, eraYear]
+monthCode is added to month.
 year and eraYear are 2 possible fields date fields given by the calendar reckoning system. 
 	year is the algebraic signed integer value of the year, without hole, used in all computations,
 	whereas eraYear denotes the integer value associated with an era indication.
-It is deemed that either [era, eraYear], or [year] is required on input, whereas year is required (except for MonthDay).
-	Here, for Roman calendars a control is performed if year and [era, eraYear] are specified: then all those value have to match.
+For calendars with eras, the code "e0", "e1" and possibly "e2" are used.
 */
 /* Required: 
 	Chronos.js
@@ -68,27 +73,34 @@ const isoWeeks = {	// The week fields with the ISO rules
 }
 
 class MilesianCalendar {
-	constructor () {
-		this.id = "milesian";	// this is of the same level as i"so8601", "gregory" etc.
+/** Constructor for the Milesian calendar
+ * @param (string) id : the name when displaying an ISO string
+*/
+	constructor (id) {
+		this.id = id;
 	}
+	/* Errors
+	*/
+	static missingElement = new TypeError ("missing date element")
+	static ambiguousElement = new TypeError ("ambiguous date elements")
+	static missingOption = new TypeError ("expected option missing")
+	static invalidOption = new RangeError ("unknown option")
+	static dateOverflow = new RangeError ("invalid date") // thrown in case of overflow : reject option
 	/* Basics for interaction with Temporal objects (this.id is forced in constructor)
 	*/
 	toString () {return this.id}
-	mergeFields (fields, additionalFields) {	// monthCode converted to month ; [era, eraYera] shall throw [year] out
-		if ('monthCode' in additionalFields && 'month' in additionalFields) throw MilesianCalendar.ambiguousElement; // Checked by Temporal objects ?
-		if ('monthCode' in additionalFields) {
-			additionalFields.month =  Number(additionalFields.monthCode.split('m')[0]);	// extract numeric part of month code
-			delete additionalFields.monthCode;	//
-		}
-		return Object.assign(fields, additionalFields)
+	toJSON ()  {return this.id}
+	fields (theFields) {return theFields} // nothing to add to the standard fields year, month, monthCode, day
+	mergeFields (fields, additionalFields) {	// additional fields should replace fields if existing
+		let returnFields = {...fields }; 	// prepare return value
+		if (additionalFields.monthCode != undefined && additionalFields.month != undefined) throw MilesianCalendar.ambiguousElement; // Checked by Temporal objects ?
+		if (additionalFields.monthCode != undefined) delete returnFields.month;
+		if (additionalFields.month != undefined) delete returnFields.monthCode;
+		return Object.assign(returnFields, additionalFields)
 	}
-	fields (theFields) {return theFields} // nothing to add to the standard fields year, month, day
 	static from (thing) {return Temporal.Calendar.from(thing)}	// This should not be used, but just in case.
 	/* Basic calendar-specific objects 
 	*/
-	static invalidOption = new RangeError ("unknown option")
-	static ambiguousElement = new RangeError ("ambiguous date elements")
-	static dateOverflow = new RangeError ("invalid date") // thrown in case of overflow : reject option
 	calendarClockwork = new Chronos ( { // To be used with day counter from M000-01-01 ie ISO -000001-12-22. Decompose into Milesian year, month, day.
 		timeepoch : 1721050, // Julian Day at 1 1m 000 i.e. -000001-12-22
 		coeff : [ 
@@ -137,9 +149,13 @@ class MilesianCalendar {
 	*/ 
 	dateFromFields (askedComponents, options, Construct=Temporal.PlainDate) { // = {overflow : "constrain"} necessary when this routine is called by Temporal's other (dateAdd) ?
 		var components = { ... askedComponents }; 
-		// Temporal initialisez and checks options parameter
+		// Temporal initialises and checks options parameter
 		// Temporal throws non-numeric values for date parameters
 		// Temporal checks completeness
+		// Check how month is specified. Priority to existing numeric month. Else, extract month number by any means
+		if (isNaN(components.year)) throw MilesianCalendar.missingElement;
+		if (components.month == undefined) component.month = Number(components.monthCode.match(/\d+/)[0]);
+		if (isNaN(components.month)) throw MilesianCalendar.missingElement;
 		// First constrain month. If outside 1..12, set to first resp. last day of year.
 		if (components.month < 1) if (options.overflow == "constrain") { components.month = 1; components.day = 1 } else throw MilesianCalendar.dateOverflow;
 		if (components.month > 12) if (options.overflow == "constrain") { 
@@ -148,6 +164,7 @@ class MilesianCalendar {
 			} 
 			else throw MilesianCalendar.dateOverflow;
 		// Now, month is in good range, constrain day
+		if (isNaN(components.day)) throw MilesianCalendar.missingElement;
 		if (components.day < 1) if (options.overflow == "constrain") { components.day = 1 } else throw MilesianCalendar.dateOverflow;
 		let upperDay = MilesianCalendar.internalDaysInMonth ( components.month, Chronos.isGregorianLeapYear(components.year + 1) );
 		if (components.day > upperDay) if (options.overflow == "constrain") { components.day = upperDay } else throw MilesianCalendar.dateOverflow;
@@ -157,15 +174,21 @@ class MilesianCalendar {
 	}
 	yearMonthFromFields (askedComponents, options, Construct=Temporal.PlainYearMonth) { // options = {overflow : "constrain"}
 		var components = { ... askedComponents }; 
+		if (isNaN(components.year)) throw MilesianCalendar.missingElement;
+		if (components.month == undefined) component.month = Number(components.monthCode.match(/\d+/)[0]);
+		if (isNaN(components.month)) throw MilesianCalendar.missingElement;
 		if (components.month < 1) if (options.overflow == "constrain") { components.month = 1 } else throw MilesianCalendar.dateOverflow;
 		if (components.month > 12 ) if (options.overflow == "constrain") { components.month = 12 } else throw MilesianCalendar.dateOverflow;
 		return new Construct(components.year, components.month, this, 13);// Year and month for that day is always the same in Milesian and ISO 8601
 	}
 	monthDayFromFields (askedComponents, options, Construct=Temporal.PlainMonthDay) { // options = {overflow : "constrain"}
-		var components = { month : askedComponents.month, day : askedComponents.day };
+		var components = { ... askedComponents };
+		if (components.month == undefined) component.month = Number(components.monthCode.match(/\d+/)[0]);
+		if (isNaN(components.month)) throw MilesianCalendar.missingElement;
 		if (components.month < 1) if (options.overflow == "constrain") { components.month = 1; components.day = 1 } else throw MilesianCalendar.dateOverflow;
 		if (components.month > 12 ) if (options.overflow == "constrain") { components.month = 12;  components.day = 31 } 
 			else throw MilesianCalendar.dateOverflow;
+		if (isNaN(components.day)) throw MilesianCalendar.missingElement;
 		if (components.day < 1) if (options.overflow == "constrain") { components.day = 1 } else throw MilesianCalendar.dateOverflow;
 		if (components.day > 31 || ( components.day == 31 && Chronos.mod (components.month, 2) == 1 ))  
 			if (options.overflow == "constrain") { components.day = 30 + (Chronos.mod (components.month, 2) == 0 ? 1 : 0) } else throw MilesianCalendar.dateOverflow;
@@ -270,44 +293,48 @@ class MilesianCalendar {
 } // end of calendar object/class
 
 class JulianCalendar  {
-/**	Parameters for julian calendar variants
- * @param (number) weekStart : the day number of the first day of week, default 1 for Monday.
+/**	Constructor fo julian calendar variants
+ * @param (string) id : the calendar name
+ * @param (number) startOfWeek : week begins on Sunday (0) or on Monday (1) or any other day (0 to 6).
  * @param (number) w1Day : the day in the first month that is always in the week 1 of year, default 4 meaning 4 January.
 */
-	constructor (id) {
+	constructor (id, startOfWeek=0, w1Day=4) {
+		this.startOfWeek = startOfWeek;
+		this.w1Day = w1Day;	// the day number in January that characterises the first week, 4 by default.
 		this.id = id;
 	}
+	/* Errors
+	*/
+	static missingElement = new TypeError ("missing date element")
+	static ambiguousElement = new TypeError ("ambiguous date elements")
+	static missingOption = new TypeError ("expected option missing")
+	static invalidOption = new RangeError ("unknown option")
+	static dateOverflow = new RangeError ("invalid date") // thrown in case of overflow : reject option
 	/* Basics for interaction with Temporal objects (this.id is forced in constructor)
 	*/
 	toString () {return this.id}
+	toJSON ()  {return this.id}
+	fields (theFields) {	// Add era and eraYear if year is in list
+		if (theFields.includes('year')) {
+			theFields.push ('eraYear');
+			theFields.push ('era')
+		}
+		return theFields
+	}
 	mergeFields (fields, additionalFields) {	// monthCode converted to month ; [era, eraYera] shall throw [year] out
-		if ('monthCode' in additionalFields && 'month' in additionalFields) throw JulianCalendar.ambiguousElement; // Checked by Temporal objects ?
-		if ('monthCode' in additionalFields) {
-			additionalFields.month =  +additionalFields.monthCode;
-			delete additionalFields.monthCode;	//
-		}
-		if (('year' in additionalFields && ('era' in additionalFields || 'eraYear' in additionalFields))
-			|| 'era' in additionalFields != 'eraYear' in additionalFields) throw JulianCalendar.ambiguousElement; // Checked by Temporal objects ?
-		if ('era' in additionalFields) delete fields.year;
-		if ('year' in additionalFields) { delete fields.era; delete fields.earYear }
-		return Object.assign(fields, additionalFields)
+		let returnFields = {...fields }; 	// prepare return value
+		if (additionalFields.monthCode != undefined && additionalFields.month != undefined) throw JulianCalendar.ambiguousElement; // Checked by Temporal objects ?
+		if (additionalFields.monthCode != undefined) delete returnFields.month;
+		if (additionalFields.month != undefined) delete returnFields.monthCode;
+		if ((additionalFields.eraYear != undefined) != (additionalFields.era != undefined)) throw JulianCalendar.missingElement; // Checked by Temporal objects ?
+		if (additionalFields.year != undefined && additionalFields.eraYear != undefined) throw JulianCalendar.ambiguousElement; // Checked by Temporal objects ?
+		if (additionalFields.year != undefined) { delete returnFields.eraYear; delete returnFields.era };
+		if (additionalFields.eraYear != undefined ) delete returnFields.year;
+		return Object.assign(returnFields, additionalFields)
 	}
-	fields (theFields) {	// For Temporal: add "era", and see whether one may leave it undefined.
-		let myFields = [...theFields];	// a brand new Array
-		if (myFields.includes ("year")) {
-			if ( ! myFields.includes ("era") ) myFields.unshift("era");
-			if ( ! myFields.includes ("eraYear") ) myFields.unshift("eraYear")
-		}
-		return myFields;
-	}
-	eras = ["bc", "ad"]	// basic codes for eras should always be in small letters
+	eras = ["e0", "e1"]	// basic codes for eras should always be in small letters
 	/* Basics data and computing options
 	*/
-	w1Day = 4	// the day number in January that characterises the first week
-	static invalidOption = new RangeError ("unknown option")
-	static outOfRangeDateElement = new RangeError ("date element out of range") // month or era out of specified range for calendar
-	static ambiguousElement = new RangeError ("ambiguous date elements")
-	static dateOverflow = new RangeError ("date overflow with reject option") // thrown in case of overflow : reject option
 	calendarClockwork = new Chronos ({ // To be used with day counter from Julian 0000-03-01 ie ISO 0000-02-28. Decompose into Julian years, months, date.
 		timeepoch : 1721118, // Julian day of 1 martius 0 i.e. 0000-02-28
 		coeff : [ 
@@ -327,12 +354,12 @@ class JulianCalendar  {
 	weekClockWork = new WeekClock ( {	// weekdayRule
 		originWeekday: 1, 		// weekday of Julian Day 0 is Monday
 		daysInYear: (year) => (Chronos.isJulianLeapYear( year ) ? 366 : 365),		// leap year rule for this calendar
-		startOfWeek : 0,		// week start with 0 (Sunday)
-		characWeekNumber : 1,	// we have a week 1 and the characteristic day for this week is 4 January. Little change with respect to ISO.
+		startOfWeek : this.startOfWeek,		// week starts with 0 (Sunday) or 1 (Monday) or any other day as specified
+		characWeekNumber : 1,	// we have a week 1 and the characteristic day for this week is (w1Day) January. Little change with respect to ISO.
 		dayBase : 1,			// use 1..7 display for weekday
 		weekBase : 1,			// number of week begins with 1
 		weekLength : 7			
-	}) // end of new Chronos declaration
+	}) // end of weekClock
 	static shiftYearStart (dateFields, shift, base) { // Shift start of year to March, or back to January, for calendrical calculations
 		let shiftedFields = {...dateFields};
 		[ shiftedFields.year, shiftedFields.month ] = Chronos.shiftCycle (dateFields.year, dateFields.month, 12, shift, base + 1);
@@ -346,13 +373,13 @@ class JulianCalendar  {
 						: isLeap ? 29 : 28 );
 	}
 	static checkYearFields (components, BCEra) {	// Check that fields are complete and do not contradict each other, establish .year. Only the BC era is checked.
-		if ( (components.year == undefined) && (components.eraYear == undefined || components.era == undefined) ) 
-			return false;	// year must be defined in some way
-		if (components.era == undefined && components.eraYear != undefined) return false;	// if era not defined, eraYear should not be used
+		if ( (components.year == undefined) 
+			&& (components.eraYear == undefined || components.era == undefined) ) 
+			throw JulianCalendar.missingElement; // year must be defined in some way
+		if (components.era == undefined && components.eraYear != undefined) throw JulianCalendar.ambiguousElement;	// if era not defined, eraYear should not be used
 		if ( components.year != undefined && components.eraYear != undefined && 
 			components.year != components.eraYear && (components.era != BCEra || components.year != 1 - components.eraYear) )
-			return false;	// Year indications contradict each other
-		// if (components.era == BCEra && components.year > 0) components.year = 1 - components.year;	// Here user specified a backwards counted year
+			throw JulianCalendar.ambiguousElement;	// Year indications contradict each other
 		if (components.year == undefined) components.year = components.era == BCEra ? 1 - components.eraYear : components.eraYear;
 		return true
 	}
@@ -375,6 +402,8 @@ class JulianCalendar  {
 	dateFromFields (askedComponents, options={overflow : "constrain"}, Construct=Temporal.PlainDate) { // options = {overflow : "constrain"} necessary
 		var components = { ...askedComponents }; 
 		// check parameter values
+		if (components.month == undefined) component.month = Number(components.monthCode.match(/\d+/)[0]);
+		if (isNaN(components.month)) throw JulianCalendar.ambiguousElement;
 		// Check that all necessary fields are present and do not contradict each other. user may either submit era and eraYear, or submit year as a relative number, without era
 		if ( !JulianCalendar.checkYearFields (components, this.eras[0]) ) throw JulianCalendar.ambiguousElement; 	// This solves the year field
 		// Check for valid era in this specific calendar
@@ -390,14 +419,20 @@ class JulianCalendar  {
 		return new Construct (isoFields.isoYear, isoFields.isoMonth, isoFields.isoDay, this); // standard return
 	}
 	yearMonthFromFields (askedComponents, options, Construct=Temporal.PlainYearMonth) {//options = {overflow : "constrain"}
-		var components = { year : askedComponents.year, month : askedComponents.month, day : 1 }; // set to the first day of month in Julian calendar
+		var components = { ... askedComponents }; 
+		components.day = 1;		// set to the first day of month in Julian calendar
+		if (components.month == undefined) component.month = Number(components.monthCode.match(/\d+/)[0]);
+		if (isNaN(components.month)) throw JulianCalendar.ambiguousElement;
 		if (askedComponents.era != undefined) components.era = askedComponents.era;
 		if ( !JulianCalendar.checkYearFields (components, this.eras[0]) ) throw JulianCalendar.ambiguousElement; 	// This solves the year field 
 		let myISOFields = this.dateFromFields(components, options).getISOFields(); // should be the calendar's field normalised, or with error thrown
 		return new Construct(myISOFields.isoYear, myISOFields.isoMonth, this, myISOFields.isoDay);
 	}
 	monthDayFromFields (askedComponents, options, Construct=Temporal.PlainMonthDay) { // options = {overflow : "constrain"}
-		var components = { year : 2000, month : askedComponents.month, day : askedComponents.day }; 
+		var components = { ... askedComponents }; 
+		components.year = 2000;
+		if (components.month == undefined) component.month = Number(components.monthCode.match(/\d+/)[0]);
+		if (isNaN(components.month)) throw JulianCalendar.ambiguousElement;
 		let myISOFields = this.dateFromFields(components, options).getISOFields(); // should be the calendar's field normalised, or with error thrown
 		return new Construct(myISOFields.isoMonth, myISOFields.isoDay, this, myISOFields.isoYear);
 	}
@@ -407,7 +442,7 @@ class JulianCalendar  {
 	eraYear (date) { return this.fieldsFromDate(date).eraYear }
 	year (date) { return this.fieldsFromDate(date).year }
 	month (date) { return this.fieldsFromDate(date).month }
-	monthCode (date) { return String (this.fieldsFromDate(date).month) }
+	monthCode (date) { return "M" + this.fieldsFromDate(date).month.toLocaleString( undefined, {minimumIntegerDigits : 2} ) }
 	day (date) { return this.fieldsFromDate(date).day }
 	dayOfWeek (date) { return this.fullFieldsFromDate (date).dayOfWeek }
 	dayOfYear (date) { 
@@ -492,51 +527,105 @@ class JulianCalendar  {
 	toDateString (date) { // non standard display method
 		let fields = this.fieldsFromDate (date);
 		return  "[" + this.id + "] " + fields.day + "/" + fields.month + "/" 
-				+ (fields.year) + " " + fields.era;
+				+ (fields.eraYear) + " " + fields.era;
 		}
 } // end of calendar class
-
-class WesternCalendar { // here try to use other Temporal tools rather than basic Chronos tools, whenever possible. // does not extend Temporal.Calendar
+class WesternCalendar { 
+/**	Class that handle the switching from Julian to Gregorian calendar with the following smoothing conventions:
+ * The day of switching is the first day of a new era.
+ * The year and month where the switching takes place remain the same, with, by exception, a lesser number of days; daysInMonth, daysInYear and dayOfYear are specially computed.
+ * Switching takes place on or after 1582-10-15 (first day of Gregorian calendar in Rome), and on or before 3900-02-28 (last day where less than 28 days are skipped).
+ * inLeapYear is considered as expected at the date of computation.If the switching date is 1700-03-01, inLeapYear is true for dates from 1 Jan 1700 to 18 Feb 1700 Julian.
+ * Week figures are computed under the ISO rule, but taking the Julian resp. Gregorian calendar at current date as a reference.
+ * @param (string) id : name of calendar
+ * @param (string) switching date: first Gregorian date in this calendar
+*/
 	constructor (id, switchingDate) {
 		this.id = id;
-		this.switchingDate = Temporal.PlainDate.from(switchingDate).withCalendar("gregory");	//first date where Gregorien calendar is used
+		this.switchingDate = Temporal.PlainDate.from(switchingDate).withCalendar("iso8601");	//first date where Gregorien calendar is used
+		this.switchingYearMonth = Temporal.PlainYearMonth.from(this.switchingDate);
 		this.switchingJD = JDISO.toCounter(this.switchingDate.getISOFields());
 		// if (this.switchingDateIndex < this.firstSwitchDateIndex)
-		if (Temporal.PlainDate.compare (this.switchingDate, this.firstSwitchDate) == -1) 
+		if (Temporal.PlainDate.compare (this.switchingDate, WesternCalendar.firstSwitchDate) == -1) 
 			throw new RangeError ("Gregorian transition is on or after 1582-10-15");
-		this.lastJulianDate = Temporal.PlainDate.from(this.switchingDate).withCalendar(this.julianCalendar).subtract("P1D").withCalendar(this);
+		if (Temporal.PlainDate.compare (this.switchingDate, WesternCalendar.lastSwitchDate) == 1)
+			throw new RangeError ("Gregorian transition handled on or before 3900602-28");
+		this.lastJulianDate = Temporal.PlainDate.from(this.switchingDate).withCalendar(WesternCalendar.julianCalendar).subtract("P1D")		//.withCalendar(this);
+
+		// compute here specific daysInMonth and daysInYear
+		this.specialYear = [this.lastJulianDate.year];
+		if ( this.switchingDate.year != this.specialYear[0] ) this.specialYear.push (this.switchingDate.year);
+		this.specialMonth = [this.lastJulianDate.month];
+		if ( this.switchingDate.month != this.specialMonth[0] ) this.specialMonth.push (this.switchingDate.month);
+		this.specialYearDays = []; this.specialMonthDays = [];
+		if (this.specialYear.length == 1) {
+			this.specialYearDays [0] = 
+				Temporal.PlainDate.from({calendar : WesternCalendar.julianCalendar, year : this.specialYear[0], month : 1, day : 1}).withCalendar('iso8601')
+				.until(Temporal.PlainDate.from({calendar : 'iso8601', year : this.specialYear[0], month : 12, day : 31})).days + 1;
+		} else {
+			this.specialYearDays [0] = 
+				Temporal.PlainDate.from({calendar : WesternCalendar.julianCalendar, year : this.specialYear[0], month : 1, day : 1})
+				.until(Temporal.PlainDate.from({calendar : WesternCalendar.julianCalendar, year : this.specialYear[0], month : this.specialMonth[0], 
+				day : this.lastJulianDate.day})).days + 1;
+			this.specialYearDays [1] = Temporal.PlainDate.from({calendar : 'iso8601', year : this.specialYear[1], month : this.specialMonth[1], day : this.switchingDate.day})
+				.until(Temporal.PlainDate.from({calendar : 'iso8601', year : this.specialYear[1], month : 12, day : 31})).days + 1;
+		}
+		let lday = this.switchingDate.daysInMonth;
+		if (this.specialMonth.length == 1) {
+			this.specialMonthDays [0] =
+				Temporal.PlainDate.from({calendar : WesternCalendar.julianCalendar, year : this.specialYear[0], month : this.specialMonth[0], day : 1}).withCalendar('iso8601')
+				.until(Temporal.PlainDate.from({calendar : 'iso8601', year : this.specialYear[0], month : this.specialMonth[0], day : lday})).days + 1;
+		} else {
+			let lastind = this.specialYear.length - 1;
+			this.specialMonthDays [0] =
+				Temporal.PlainDate.from({calendar : WesternCalendar.julianCalendar, year : this.specialYear[0], month : this.specialMonth[0], day : 1})
+				.until(Temporal.PlainDate.from({calendar : WesternCalendar.julianCalendar, year : this.specialYear[0], month : this.specialMonth[0], 
+				day : this.lastJulianDate.day})).days + 1;
+			this.specialMonthDays [1] =
+				Temporal.PlainDate.from({calendar : 'iso8601', year : this.specialYear[lastind], month : this.specialMonth[1], day : this.switchingDate.day})
+				.until(Temporal.PlainDate.from({calendar : 'iso8601', year : this.specialYear[lastind], month : this.specialMonth[1],
+				day : lday})).days + 1;
+		}
 	}
+	/* Errors
+	*/
+	static missingElement = new TypeError ("missing date element")
+	static ambiguousElement = new TypeError ("ambiguous date elements")
+	static missingOption = new TypeError ("expected option missing")
+	static invalidOption = new RangeError ("unknown option")
+	static outOfRangeDateElement = new RangeError ("date element out of range") // month or era out of specified range for calendar
+	static dateOverflow = new RangeError ("invalid date") // thrown in case of overflow : reject option
+	/* Internal objects 
+	*/
+	static firstSwitchDate = Temporal.PlainDate.from ("1582-10-15")	 // First date of any non-proleptic gregorian calendar
+	static lastSwitchDate = Temporal.PlainDate.from("3900-02-28")		// This is the latest switching date where less than 28 days are skipped
+	static julianCalendar = new JulianCalendar("julian")
 	/* Basics for interaction with Temporal objects
 	*/
 	toString() {return this.id}	// necessary for subclasses, in order to get id passed as a parameter
+	toJSON ()  {return this.id}
+	fields (theFields) {	// Add era and eraYear if year is in list
+		if (theFields.includes('year')) {
+			theFields.push ('eraYear');
+			theFields.push ('era')
+		}
+		return theFields
+	}
 	mergeFields (fields, additionalFields) {	// monthCode converted to month ; [era, eraYera] shall throw [year] out
-		if ('monthCode' in additionalFields && 'month' in additionalFields) throw JulianCalendar.ambiguousElement; // Checked by Temporal objects ?
-		if ('monthCode' in additionalFields) {
-			additionalFields.month =  +additionalFields.monthCode;
-			delete additionalFields.monthCode;	//
-		}
-		if (('year' in additionalFields && ('era' in additionalFields || 'eraYear' in additionalFields))
-			|| 'era' in additionalFields != 'eraYear' in additionalFields) throw JulianCalendar.ambiguousElement; // Checked by Temporal objects ?
-		if ('era' in additionalFields) delete fields.year;
-		if ('year' in additionalFields) { delete fields.era; delete fields.earYear }
-		return Object.assign(fields, additionalFields)
+		let returnFields = {...fields }; 	// prepare return value
+		if (additionalFields.monthCode != undefined && additionalFields.month != undefined) throw WesternCalendar.ambiguousElement; // Checked by Temporal objects ?
+		if (additionalFields.monthCode != undefined) delete returnFields.month;
+		if (additionalFields.month != undefined) delete returnFields.monthCode;
+		if ((additionalFields.eraYear != undefined) != (additionalFields.era != undefined)) throw WesternCalendar.missingElement; // Checked by Temporal objects ?
+		if (additionalFields.year != undefined && additionalFields.eraYear != undefined) throw WesternCalendar.ambiguousElement; // Checked by Temporal objects ?
+		if (additionalFields.year != undefined) { delete returnFields.eraYear; delete returnFields.era };
+		if (additionalFields.eraYear != undefined ) delete returnFields.year;
+		return Object.assign(returnFields, additionalFields)
 	}
-	fields (theFields) {	// For Temporal. add "era" if not seen
-		let myFields = [...theFields];	// a brand new Array
-		if (myFields.includes ("year")) {
-			if ( ! myFields.includes ("era") ) myFields.unshift("era");
-			if ( ! myFields.includes ("eraYear") ) myFields.unshift("eraYear")
-		return myFields;
-		}
-	}
-	eras = ["bc", "as", "ns"]
+	eras = ["e0", "e1", "e2"]
 	/* Calendar specific objects
 	*/
 	w1Day = 4	// the day number in January that characterises the first week
-	static invalidOption = new RangeError ("unknown option")
-	static outOfRangeDateElement = new RangeError ("date element out of range") // month or era out of specified range for calendar
-	static ambiguousElement = new RangeError ("ambiguous date elements")
-	static dateOverflow = new RangeError ("date overflow with reject option") // thrown in case of overflow : reject option
 	gregorianClockwork = new Chronos ({ // To be used with day counter from ISO 0000-03-01. Decompose into shifted Gregorian calendar years, months, date, and gives weeks
 		timeepoch : 1721120, // Julian day of ISO 0000-03-01
 		coeff : [ 
@@ -550,7 +639,7 @@ class WesternCalendar { // here try to use other Temporal tools rather than basi
 		  {cyclelength : 1, ceiling : Infinity, subCycleShift : 0, multiplier : 1, target : "day"}
 		],
 		canvas : [ 
-			{name : "year", init : 0},	// year is a signed integer, 0 meaning 1 bc
+			{name : "year", init : 0},	// year is a signed integer, 0 meaning 1 before Christ
 			{name : "month", init : 3}, // Shifted year begins with month number 3 (March), thus simplify month shifting
 			{name : "day", init : 1}
 		]
@@ -567,10 +656,6 @@ class WesternCalendar { // here try to use other Temporal tools rather than basi
 		weekBase : 1,			// number of week begins with 1
 		weekLength : 7			
 	} )
-	/* Internal objects 
-	*/
-	firstSwitchDate = Temporal.PlainDate.from ("1582-10-15").withCalendar("gregory") // First date of A.S. or N.S. era
-	julianCalendar = new JulianCalendar("julian");
 	/* 	Calendar fields generator from any date 
 	*/
 	fieldsFromDate (date) {	// compute essential fields for  this calendar, after isoFields of any date. Week fields computed separately, on demand.
@@ -578,11 +663,11 @@ class WesternCalendar { // here try to use other Temporal tools rather than basi
 			isoFields = date.getISOFields(),
 			index = JDISO.toCounter (isoFields), 
 			fields;
-		if  (index >= this.switchingJD)	// in Gregorian period //(Temporal.PlainDate.compare (date.withCalendar("gregory"), this.switchingDate) >= 0) does not work for equal dates !!
+		if  (index >= this.switchingJD)	// in Gregorian period
 			fields = {era : this.eras[2], eraYear : isoFields.isoYear, year : isoFields.isoYear, month : isoFields.isoMonth, day : isoFields.isoDay}
 		else {
-			fields = this.julianCalendar.fieldsFromDate (date);
-			fields.era = fields.era == this.julianCalendar.eras[1] ? this.eras[1] : this.eras[0];
+			fields = WesternCalendar.julianCalendar.fieldsFromDate (date);
+			fields.era = fields.era == WesternCalendar.julianCalendar.eras[1] ? this.eras[1] : this.eras[0];
 		}
 		return fields;
 	}
@@ -593,7 +678,7 @@ class WesternCalendar { // here try to use other Temporal tools rather than basi
 			[fullFields.weekOfYear, fullFields.dayOfWeek, fullFields.weekYearOffset, fullFields.weeksInYear] = this.weekClockWork.getWeekFigures 
 				(index, this.gregorianClockwork.getNumber(JulianCalendar.shiftYearStart({ year : fullFields.year, month : 1, day : this.w1Day },2,0)), fullFields.year)
 		else {
-			let julianFields = this.julianCalendar.fullFieldsFromDate(date);
+			let julianFields = WesternCalendar.julianCalendar.fullFieldsFromDate(date);
 			[fullFields.weekOfYear, fullFields.dayOfWeek, fullFields.weekYearOffset, fullFields.weeksInYear] = 
 				[julianFields.weekOfYear, julianFields.dayOfWeek, julianFields.weekYearOffset, julianFields.weeksInYear]
 		}
@@ -604,6 +689,8 @@ class WesternCalendar { // here try to use other Temporal tools rather than basi
 	dateFromFields (askedComponents, options, Construct=Temporal.PlainDate) { // options = {overflow : "constrain"} necessary ?
 		var components = { ... askedComponents }, testDate, finalFields; 
 		// check parameter values
+		if (components.month == undefined) component.month = Number(components.monthCode.match(/\d+/)[0]);
+		if (isNaN(components.month)) throw WesternCalendar.missingElement;
 		// Check that all necessary fields are present and do not contradict each other. user may either submit era and eraYear, or submit year as a relative number, without era
 		if ( !JulianCalendar.checkYearFields (components, this.eras[0]) ) throw WesternCalendar.ambiguousElement; 
 		// Check for valid era in this specific calendar
@@ -617,25 +704,20 @@ class WesternCalendar { // here try to use other Temporal tools rather than basi
 		/*	
 		If era is unspecified, first compare the Gregorian presentation to the switching date. 
 		If era specified, the caller knows what he wants, fields are analysed following era indication, even is era is not in line with switching date.
-		If after, confirm "ns". If before, mark "as"; if "bc", JulianCalendar.checkYearFields has converted .year to negative value.
-		After era is determined, date is computed, and a last overflow control is performed. Range error is thrown for any "ns" date before 1582-10-15.
+		If after, confirm "e2". If before, mark "e1"; if "e0", JulianCalendar.checkYearFields has converted .year to negative value.
+		After era is determined, date is computed, and a last overflow control is performed. Range error is thrown for any "e2" date before 1582-10-15.
 		*/	
 		if (components.era == undefined) {	// era not user-defined, Gregorian transition date assumed
-			components.calendar = "gregory";
+			components.calendar = "iso8601";
 			testDate = Temporal.PlainDate.from (components); // Try to build a Gregorian date, with "constrain"
-			if (Temporal.PlainDate.compare (testDate, this.switchingDate.withCalendar("gregory")) >= 0) {// on or after transition date
+			if (Temporal.PlainDate.compare (testDate, this.switchingDate) >= 0) {// on or after transition date
 				let upperDay = JulianCalendar.internalDaysInMonth(components.month, Chronos.isGregorianLeapYear (components.year) );
 				if (components.day > upperDay) if (options.overflow == "constrain") {components.day = upperDay} else throw WesternCalendar.dateOverflow;
 				return new Construct (components.year, components.month, components.day, this)
-/*				testDate = Temporal.PlainDate.from (components,options);		// Create new object, obtain reject or constrain if required.
-				[components.era, components.eraYear, components.year, components.month, components.day] = 
-					[this.eras[2], testDate.year, testDate.year, testDate.month, testDate.day];
-*/
-			} else { // Date without expressed era is before transition date
-				// components.era = this.julianCalendar.eras[1];  //for Julian calendar analysis
-				components.calendar = this.julianCalendar;
+			} else { // Date without expressed era is before transition date in Gregorian
+				components.calendar = WesternCalendar.julianCalendar;
 				testDate = Temporal.PlainDate.from (components, options);
-				if (Temporal.PlainDate.compare (testDate, this.lastJulianDate.withCalendar(this.julianCalendar)) > 0) { // computed date is above last Julian date
+				if (Temporal.PlainDate.compare (testDate, this.lastJulianDate.withCalendar(WesternCalendar.julianCalendar)) > 0) { // computed date is above last Julian date
 					if (options.overflow = "constrain") {
 						let myFields = this.lastJulianDate.getISOFields();
 						return new Construct (myFields.isoYear, myFields.isoMonth, myFields.isoDay, this)
@@ -645,32 +727,39 @@ class WesternCalendar { // here try to use other Temporal tools rather than basi
 				return new Construct (myFields.isoYear, myFields.isoMonth, myFields.isoDay, this)
 			}
 		}
-		else // here the follow user's "bc", "as" or "ns" indication; "ad" is considered like undefined.
+		else // here follow user's "e0", "e1" or "e2" indication; "e1" is considered like undefined.
 			if (components.era == this.eras[2]) {	// user says "New Style"
-				components.calendar = "gregory";
+				components.calendar = "iso8601";
 				testDate = Temporal.PlainDate.from (components, options);	// will throw if options says so
-				if (Temporal.PlainDate.compare (testDate.withCalendar("gregory"), this.firstSwitchDate) < 0) throw WesternCalendar.invalidEra
+				if (Temporal.PlainDate.compare (testDate, WesternCalendar.firstSwitchDate) < 0) throw WesternCalendar.invalidEra
 				else {
 					let myFields = testDate.getISOFields();
 					return new Construct (myFields.isoYear, myFields.isoMonth, myFields.isoDay, this)
 				}
 			}
 			else {	// user says an era of Julian calendar.
-				if (components.era == this.eras[1]) components.era = this.julianCalendar.eras[1];	// "as" is rejected with the plain julian calendar.
-				components.calendar = this.julianCalendar;
+				if (components.era == this.eras[1]) components.era = WesternCalendar.julianCalendar.eras[1];	// if era of index 1, that is era of year 1.
+				components.calendar = WesternCalendar.julianCalendar;
 				testDate = Temporal.PlainDate.from (components, options);
 				let myFields = testDate.getISOFields();
 				return new Construct (myFields.isoYear, myFields.isoMonth, myFields.isoDay, this)
 			}
 		}
 	yearMonthFromFields (askedComponents, options, Construct=Temporal.PlainYearMonth) {// options = {overflow : "constrain"}
-		var components = { year : askedComponents.year, month : askedComponents.month, day : 1 }; // set to the first day of month in Julian calendar
-		if (askedComponents.era != undefined) components.era = askedComponents.era;
+		var components = { ... askedComponents };
+		components.day = 1;
+		if (components.month == undefined) component.month = Number(components.monthCode.match(/\d+/)[0]);
+		if (isNaN(components.month)) throw WesternCalendar.missingElement;
+		if ( !JulianCalendar.checkYearFields (components, this.eras[0]) ) throw WesternCalendar.ambiguousElement; 
+		if (components.era != undefined && !this.eras.includes(components.era)) throw WesternCalendar.outOfRangeDateElement;
 		let myISOFields = this.dateFromFields(components, options).getISOFields(); // should be the calendar's field normalised, or with error thrown
 		return new Construct(myISOFields.isoYear, myISOFields.isoMonth, this, myISOFields.isoDay);
 	}
 	monthDayFromFields (askedComponents, options, Construct=Temporal.PlainMonthDay) { // options = {overflow : "constrain"}
-		var components = { year : 2000, month : askedComponents.month, day : askedComponents.day }; 
+		var components = { ... askedComponents }; 
+		components.year = 2000;
+		if (components.month == undefined) component.month = Number(components.monthCode.match(/\d+/)[0]);
+		if (isNaN(components.month)) throw WesternCalendar.ambiguousElement;
 		let myISOFields = this.dateFromFields(components, options).getISOFields();
 		return new Construct(myISOFields.isoMonth, myISOFields.isoDay, this, myISOFields.isoYear);
 	}
@@ -680,73 +769,48 @@ class WesternCalendar { // here try to use other Temporal tools rather than basi
 	eraYear (date) { return this.fieldsFromDate(date).eraYear }
 	year (date) { return this.fieldsFromDate(date).year }
 	month (date) { return this.fieldsFromDate(date).month }
-	monthCode (date) { return String (this.fieldsFromDate(date).month) }
+	monthCode (date) { return "M" + this.fieldsFromDate(date).month.toLocaleString( undefined, {minimumIntegerDigits : 2}) }
 	day (date) { return this.fieldsFromDate(date).day }
 	dayOfWeek (date) { return this.fullFieldsFromDate(date).dayOfWeek }
+
 	dayOfYear (date) { 
-		return 1 + JDISO.toCounter (date.getISOFields()) - JDISO.toCounter (this.dateFromFields ({ year : this.year(date), month : 1, day : 1}).getISOFields());
+		let fields = this.fieldsFromDate(date);
+		let iy = this.specialYear.indexOf (fields.year);
+		if (iy == 1)		// the first day of this year was the switching date, not 1. Jan
+			return Temporal.PlainDate.from(this.switchingDate).until(date.withCalendar('iso8601')).days + 1
+		else
+			return date.since(this.dateFromFields ({ year : this.fields.year, month : 1, day : 1}, {overflow : 'reject'})).days + 1
 	}
 	weekOfYear (date) { return this.fullFieldsFromDate(date).weekOfYear }
 	daysInWeek (date) { return 7 }
-	daysInMonth (date) { // this one is complicated: it handles the case of the month where the switchover to Gregorian calendar occurs
-		var index = JDISO.toCounter (date.getISOFields()),
-			fields = this.fieldsFromDate(date), 
-			lastJulianFields = {year : this.lastJulianDate.year, month : this.lastJulianDate.month },
-			firstGregorianFields = this.switchingDate.getISOFields(), //year : this.switchingDate.isoYear, month : this.switchingDate.isoMonth
-			firstInSwitchingMonth = this.dateFromFields ({day : 1, month : lastJulianFields.month, year : lastJulianFields.year }),
-			lastAfterSwitching = this.dateFromFields 
-				({day : this.switchingDate.withCalendar("gregory").daysInMonth, month : this.switchingDate.withCalendar("gregory").month, year : this.switchingDate.withCalendar("gregory").year}),
-			dur = Temporal.Duration.from("P0D");
-		if (fields.year == lastJulianFields.year && fields.month == lastJulianFields.month) {
-			try { 
-				dur = this.dateUntil( firstInSwitchingMonth,
-				this.dateFromFields ({day : JulianCalendar.internalDaysInMonth (lastJulianFields.month, Chronos.isJulianLeapYear(lastJulianFields.year)), 
-				month : lastJulianFields.month, year :lastJulianFields.year }, {overflow : "reject"} ),  
-				{largestUnit : "days"})
-			}
-			catch (e) { // overflow errors shows that the ordinary last day in month does not even exist that year.
-				dur = this.dateUntil( firstInSwitchingMonth, this.lastJulianDate, {largestUnit : "days"})
-			}
-		}
-		if (fields.year == firstGregorianFields.isoYear && fields.month == firstGregorianFields.isoMonth) {
-			try { 
-				dur = this.dateUntil(
-					this.dateFromFields ({day : 1, month : firstGregorianFields.isoMonth, year :firstGregorianFields.isoYear }, {overflow : "reject"}), 
-					lastAfterSwitching,
-					{largestUnit : "days"})
-			}
-			catch (e) { // overflow errors shows that the ordinary last day in month does not even exist that year.
-				dur = this.dateUntil ( this.switchingDate, lastAfterSwitching, {largestUnit : "days"} )
-			}
-		}
-		if (dur.days != 0) return dur.days + 1
-		else if (index < this.switchingJD)
-			return JulianCalendar.internalDaysInMonth (fields.month, Chronos.isJulianLeapYear(fields.year))
-			else return date.withCalendar("gregory").daysInMonth
+
+	daysInMonth (date) { 
+		let fields = this.fieldsFromDate(date);
+		let im = -1;
+		let iy = this.specialYear.indexOf (fields.year);
+		if (iy >= 0) im = this.specialMonth.indexOf (fields.month);
+		if ( this.specialYear.length == 2 &&  (im == 1) != ( iy == 1 ) )  im = -1;	// Case year changes during switching period
+		if (im >= 0) { return this.specialMonthDays[im] }
+		else if (fields.era == this.eras[2]) { return date.withCalendar("gregory").daysInMonth }
+			else return JulianCalendar.internalDaysInMonth (fields.month, Chronos.isJulianLeapYear(fields.year))
 	}
-	daysInYear (date) { // compute from 1 Jan. until 31 Dec. of this year
-		let fields = this.fieldsFromDate(date),
-			dur = this.dateUntil (
-				this.dateFromFields({year : fields.year, month : 1, day : 1}),
-				this.dateFromFields({year : fields.year, month : 12, day : 31}),
-				{largestUnit : "days"});
-		return dur.days + 1
+	daysInYear (date) { 
+		let fields = this.fieldsFromDate(date);
+		let iy = this.specialYear.indexOf (fields.year);
+		if ( iy >=0 ) { return this.specialYearDays[iy] }
+		else switch (fields.era) {
+			case this.eras[0] : 
+			case this.eras[1] : return Chronos.isJulianLeapYear(fields.year) ? 366 : 365;  
+			case this.eras[2] : return Chronos.isGregorianLeapYear(fields.year) ? 366 : 365;
+		}
 	}
 	monthsInYear (date) { return 12 }
 	inLeapYear (date) { // a same year, like 1700 for a switching date that year, may be leap at the begining, then common.
-		let y = date.year;
 		switch (date.era) {
-			case this.eras[0] : y = 1 - y;	// set y as an unambiguous year and continue
-			case this.eras[1] : return Chronos.isJulianLeapYear(y); 
-			case this.eras[2] : return Chronos.isGregorianLeapYear(y);
+			case this.eras[0] : 
+			case this.eras[1] : return Chronos.isJulianLeapYear(date.year); 
+			case this.eras[2] : return Chronos.isGregorianLeapYear(date.year);
 		}
-/*		let fields = this.fieldsFromDate(date), y = fields.year;
-		switch (fields.era) {
-			case this.eras[0] : y = 1 - y;	// set y as an unambiguous year and continue
-			case this.eras[1] : return Chronos.isJulianLeapYear(y); 
-			case this.eras[2] : return Chronos.isGregorianLeapYear(y);
-		}
-*/
 	}
 	/* Non standard week properties 
 	*/
@@ -826,7 +890,7 @@ class WesternCalendar { // here try to use other Temporal tools rather than basi
 	toDateString (date) { // non standard display method
 		let fields = this.fieldsFromDate(date);
 		return "[" + this.id + "] " + fields.day + "/" + fields.month + "/" 
-			+ (fields.year) + " " + fields.era 
+			+ (fields.eraYear) + " " + fields.era 
 	}
 }// end of calendar class
 
@@ -836,5 +900,6 @@ const
 	vatican = new WesternCalendar ("vatican","1582-10-15"),
 	french = new WesternCalendar ("french","1582-12-20"),
 	german = new WesternCalendar ("german","1700-03-01"),
-	english = new WesternCalendar("english","1752-09-14");
+	english = new WesternCalendar("english","1752-09-14"),
+	swiss = new WesternCalendar("swiss","1701-01-12");
 

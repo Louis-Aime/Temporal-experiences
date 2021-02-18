@@ -36,7 +36,7 @@ var
 	rm4 = { year : -752, month : 4, day : 31, calendar : milesian},
 	r31 = { year : 1600, month : 1, day : 31, calendar : julian},
 	rauc = { year : -752, month : 4, day : 21, calendar : julian },
-	rann = { era : "bc", eraYear : 1, month : 3, day : 25, calendar : julian },
+	rann = { era : "e0", eraYear : 1, month : 3, day : 25, calendar : julian },
 	rinc = { year : 8, month : 8, day : 29, calendar : julian },
 	rchr = { year : 1, month : 1, day : 1, calendar : vatican },
 	r201 = { year : 201, month : 3, day : 1, calendar : julian },
@@ -45,9 +45,11 @@ var
 	rger1 = { year : 1700, month : 2, day : 18, calendar : german },
 	rger2 = { year : 1700, month : 3, day : 1, calendar : german },
 	rger3 = { year : 1700, month : 1, day : 28, calendar : german },
-	rger4 = { era : "bc", eraYear : 753, month : 4, day : 21, calendar : german },
-	rshak = { era : "as", eraYear : 1616, month : 4, day : 23, calendar : english },
-	rcerv = { era : "ns", eraYear : 1616, month : 4, day : 23, calendar : english };
+	rger4 = { era : "e0", eraYear : 753, month : 4, day : 21, calendar : german },
+	rshak = { era : "e1", eraYear : 1616, month : 4, day : 23, calendar : english },
+	rcerv = { era : "e2", eraYear : 1616, month : 4, day : 23, calendar : english },
+	rswiss1 = { year : 1700, month : 12, day : 31, calendar  : swiss },
+	rswiss2 = { year : 1701, month : 1, day : 12, calendar  : swiss };
 
 var	
 	mdmlast = Temporal.PlainMonthDay.from ({month : 12, day : 31, calendar : milesian}),
@@ -73,7 +75,9 @@ var
 	dger3 = Temporal.PlainDate.from(rger3),
 	dger4 = Temporal.PlainDate.from(rger4),
 	dshak = Temporal.PlainDate.from(rshak),
-	dcerv = Temporal.PlainDate.from(rcerv);
+	dcerv = Temporal.PlainDate.from(rcerv),
+	dswiss1 = Temporal.PlainDate.from(rswiss1),
+	dswiss2 = Temporal.PlainDate.from(rswiss2);
 	
 var 
 	pd1 = Temporal.Duration.from ("P1D"),
