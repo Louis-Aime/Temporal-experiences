@@ -1,6 +1,8 @@
 /* A selection of calendar for tries with Temporal
 */
-/* Version	M2021-02-30 After the change of code for eras of the gregory calendar: 
+/* Version	M2021-05-25	Several changes in Temporal polyfill:
+		suppress "Construct" field
+	M2021-02-30 After the change of code for eras of the gregory calendar: 
 		develop a monthCode method
 		use "e0", "e1", "e2" as era codes, where "e0" means that years are counted backwards starting with 1 before epoch (1-y style)
 		establish mergeFields(), update fields()
@@ -147,7 +149,7 @@ class MilesianCalendar {
 	/* Main date and Temporal objects generator from fields representing a Milesian date. 
 	 Note that the Temporal. object shall be initiated with the ISO representation.
 	*/ 
-	dateFromFields (askedComponents, options, Construct=Temporal.PlainDate) { // = {overflow : "constrain"} necessary when this routine is called by Temporal's other (dateAdd) ?
+	dateFromFields (askedComponents, options) { // = {overflow : "constrain"} necessary when this routine is called by Temporal's other (dateAdd) ?
 		var components = { ... askedComponents }; 
 		// Temporal initialises and checks options parameter
 		// Temporal throws non-numeric values for date parameters
@@ -170,18 +172,18 @@ class MilesianCalendar {
 		if (components.day > upperDay) if (options.overflow == "constrain") { components.day = upperDay } else throw MilesianCalendar.dateOverflow;
 		// compute day index from elements, compute isoFields and return.
 		let isoFields = JDISO.toIsoFields (this.calendarClockwork.getNumber(components));
-		return new Construct (isoFields.isoYear, isoFields.isoMonth, isoFields.isoDay, this);
+		return new Temporal.PlainDate (...isoFields);
 	}
-	yearMonthFromFields (askedComponents, options, Construct=Temporal.PlainYearMonth) { // options = {overflow : "constrain"}
+	yearMonthFromFields (askedComponents, options) { // options = {overflow : "constrain"}
 		var components = { ... askedComponents }; 
 		if (isNaN(components.year)) throw MilesianCalendar.missingElement;
 		if (components.month == undefined) component.month = Number(components.monthCode.match(/\d+/)[0]);
 		if (isNaN(components.month)) throw MilesianCalendar.missingElement;
 		if (components.month < 1) if (options.overflow == "constrain") { components.month = 1 } else throw MilesianCalendar.dateOverflow;
 		if (components.month > 12 ) if (options.overflow == "constrain") { components.month = 12 } else throw MilesianCalendar.dateOverflow;
-		return new Construct(components.year, components.month, this, 13);// Year and month for that day is always the same in Milesian and ISO 8601
+		return new Temporal.PlainYearMonth (...components);	// Year and month for that day is always the same in Milesian and ISO 8601
 	}
-	monthDayFromFields (askedComponents, options, Construct=Temporal.PlainMonthDay) { // options = {overflow : "constrain"}
+	monthDayFromFields (askedComponents, options) { // options = {overflow : "constrain"}
 		var components = { ... askedComponents };
 		if (components.month == undefined) component.month = Number(components.monthCode.match(/\d+/)[0]);
 		if (isNaN(components.month)) throw MilesianCalendar.missingElement;
@@ -194,7 +196,7 @@ class MilesianCalendar {
 			if (options.overflow == "constrain") { components.day = 30 + (Chronos.mod (components.month, 2) == 0 ? 1 : 0) } else throw MilesianCalendar.dateOverflow;
 		components.year = (components.month == 12 && components.day == 31) ? 1999 : 2000;	// Long cycle between 31 12m N-1 and 30 12m N, where N is a bissextile year number.
 		let myFields = this.dateFromFields(components, options).getISOFields();
-		return new Construct(myFields.isoMonth, myFields.isoDay, this, myFields.isoYear);
+		return new Temporal.PlainMonthDay (...myFields);
 	}
 	/* Methods for elements of date
 	*/
@@ -232,17 +234,17 @@ class MilesianCalendar {
 	Overflow occurs there only if day number does not exist in targer month. In such a case, the "constrain" action is to set the day to the highest existing value.
 	Days elements are then added or subtracted to the JD index of the first target date to yield the final targer date.
 	*/
-	dateAdd (date, duration, options, Construct) {// Add a +/- duration - // no default value options={overflow:"constrain"}
+	dateAdd (date, duration, options) {// Add a +/- duration - // no default value options={overflow:"constrain"}
 		// 1. Build new date components from duration years and months
 		let components = this.fieldsFromDate(date),
 			addedYearMonth = Chronos.divmod ( components.month + duration.months - 1, 12 );
 		components.year += (duration.years + addedYearMonth[0]); 
 		components.month = addedYearMonth[1] + 1; 
 		// dateFromFields shall handle overflow option
-		let dateOne = this.dateFromFields (components, options, Construct);
+		let dateOne = this.dateFromFields (components, options);
 		// 2. Add or subtract days to first step result
 		let resultFields = JDISO.toIsoFields(JDISO.toCounter(dateOne.getISOFields()) + duration.weeks*this.daysInWeek(date) + duration.days);
-		return new Construct (resultFields.isoYear, resultFields.isoMonth, resultFields.isoDay, this)
+		return new Temporal.PlainDate (...resultFields);
 	}
 	dateUntil (smaller, larger, options={largestUnit:"auto"}) { //
 		switch (Temporal.PlainDate.compare(smaller, larger)) {
@@ -399,7 +401,7 @@ class JulianCalendar  {
 	/* Main date and Temporal objects generator from fields representing a Julian date. 
 	 Note that the Temporal.xxxDatexxx object shall be initiated with the ISO representation.
 	*/ 
-	dateFromFields (askedComponents, options={overflow : "constrain"}, Construct=Temporal.PlainDate) { // options = {overflow : "constrain"} necessary
+	dateFromFields (askedComponents, options={overflow : "constrain"}) { // options = {overflow : "constrain"} necessary
 		var components = { ...askedComponents }; 
 		// check parameter values
 		if (components.month == undefined) component.month = Number(components.monthCode.match(/\d+/)[0]);
@@ -414,27 +416,27 @@ class JulianCalendar  {
 		if (components.day < 1) if (options.overflow == "constrain") {components.day = 1} else throw JulianCalendar.dateOverflow;
 		let upperDay = JulianCalendar.internalDaysInMonth(components.month, Chronos.isJulianLeapYear(components.year));
 		if (components.day > upperDay) if (options.overflow == "constrain") {components.day = upperDay} else throw JulianCalendar.dateOverflow;
-		// All controls done, now translate fields into day-index from epoch and then to IsoFields, and construct PlainDate.
+		// All controls done, now translate fields into day-index from epoch and return a PlainDate.
 		let isoFields = JDISO.toIsoFields (this.calendarClockwork.getNumber(JulianCalendar.shiftYearStart(components,2,0)));
-		return new Construct (isoFields.isoYear, isoFields.isoMonth, isoFields.isoDay, this); // standard return
+		return new Temporal.PlainDate (...isoFields);
 	}
-	yearMonthFromFields (askedComponents, options, Construct=Temporal.PlainYearMonth) {//options = {overflow : "constrain"}
+	yearMonthFromFields (askedComponents, options) {//options = {overflow : "constrain"}
 		var components = { ... askedComponents }; 
 		components.day = 1;		// set to the first day of month in Julian calendar
 		if (components.month == undefined) component.month = Number(components.monthCode.match(/\d+/)[0]);
 		if (isNaN(components.month)) throw JulianCalendar.ambiguousElement;
 		if (askedComponents.era != undefined) components.era = askedComponents.era;
 		if ( !JulianCalendar.checkYearFields (components, this.eras[0]) ) throw JulianCalendar.ambiguousElement; 	// This solves the year field 
-		let myISOFields = this.dateFromFields(components, options).getISOFields(); // should be the calendar's field normalised, or with error thrown
-		return new Construct(myISOFields.isoYear, myISOFields.isoMonth, this, myISOFields.isoDay);
+		let isoFields = this.dateFromFields(components, options).getISOFields(); // should be the calendar's field normalised, or with error thrown
+		return new Temporal.PlainYearMonth (...isoFields);
 	}
-	monthDayFromFields (askedComponents, options, Construct=Temporal.PlainMonthDay) { // options = {overflow : "constrain"}
+	monthDayFromFields (askedComponents, options) { // options = {overflow : "constrain"}
 		var components = { ... askedComponents }; 
 		components.year = 2000;
 		if (components.month == undefined) component.month = Number(components.monthCode.match(/\d+/)[0]);
 		if (isNaN(components.month)) throw JulianCalendar.ambiguousElement;
-		let myISOFields = this.dateFromFields(components, options).getISOFields(); // should be the calendar's field normalised, or with error thrown
-		return new Construct(myISOFields.isoMonth, myISOFields.isoDay, this, myISOFields.isoYear);
+		let isoFields = this.dateFromFields(components, options).getISOFields(); // should be the calendar's field normalised, or with error thrown
+		return new Temporal.PlainMonthDay (...isoFields);
 	}
 	/* Methods for Temporal date-like properties
 	*/
@@ -473,7 +475,7 @@ class JulianCalendar  {
 	Overflow occurs there only if day number does not exist in target month. In such a case, the "constrain" action is to set the day to the highest existing value.
 	Days elements are then added or subtracted to the JD index of the first target date to yield the final target date.
 	*/
-	dateAdd (date, duration, options, Construct) {// Add a +/- duration - // options={overflow:"constrain"} not used
+	dateAdd (date, duration, options) {// Add a +/- duration - // options={overflow:"constrain"} not used
 		// 1. Build new date components from duration years and months
 		let components = this.fieldsFromDate(date); // here year is the algebraic version
 		let addedYearMonth = Chronos.divmod ( components.month + duration.months - 1, 12 );
@@ -481,10 +483,10 @@ class JulianCalendar  {
 		components.month = addedYearMonth[1] + 1; 
 		delete components.era; delete components.eraYear;  // prepare to dateFromFields
 		// overflow option handled in trying to build new date
-		let dateOne = this.dateFromFields (components, options, Construct); // stated options will do the job
+		let dateOne = this.dateFromFields (components, options); // stated options will do the job
 		// 2. Add or subtract days to final result
 		let resultFields = JDISO.toIsoFields(JDISO.toCounter(dateOne.getISOFields()) + duration.weeks*this.daysInWeek(date) + duration.days);
-		return new Construct (resultFields.isoYear, resultFields.isoMonth, resultFields.isoDay, this)
+		return new Temporal.PlainDate (...resultFields);
 	}
 	dateUntil (smaller, larger, options={largestUnit:"auto"}) { 
 		switch (Temporal.PlainDate.compare(smaller, larger)) {
@@ -686,7 +688,7 @@ class WesternCalendar {
 	}
 	/* Date and Temporal objects generator from fields representing a date in the western historic calendar
 	*/
-	dateFromFields (askedComponents, options, Construct=Temporal.PlainDate) { // options = {overflow : "constrain"} necessary ?
+	dateFromFields (askedComponents, options) { // options = {overflow : "constrain"} necessary ?
 		var components = { ... askedComponents }, testDate, finalFields; 
 		// check parameter values
 		if (components.month == undefined) component.month = Number(components.monthCode.match(/\d+/)[0]);
@@ -713,18 +715,18 @@ class WesternCalendar {
 			if (Temporal.PlainDate.compare (testDate, this.switchingDate) >= 0) {// on or after transition date
 				let upperDay = JulianCalendar.internalDaysInMonth(components.month, Chronos.isGregorianLeapYear (components.year) );
 				if (components.day > upperDay) if (options.overflow == "constrain") {components.day = upperDay} else throw WesternCalendar.dateOverflow;
-				return new Construct (components.year, components.month, components.day, this)
+				return new Temporal.PlainDate (...components)
 			} else { // Date without expressed era is before transition date in Gregorian
 				components.calendar = WesternCalendar.julianCalendar;
 				testDate = Temporal.PlainDate.from (components, options);
 				if (Temporal.PlainDate.compare (testDate, this.lastJulianDate.withCalendar(WesternCalendar.julianCalendar)) > 0) { // computed date is above last Julian date
 					if (options.overflow = "constrain") {
 						let myFields = this.lastJulianDate.getISOFields();
-						return new Construct (myFields.isoYear, myFields.isoMonth, myFields.isoDay, this)
+						return new Temporal.PlainDate (...myFields)
 					} else throw WesternCalendar.dateOverflow;
 				}
 				let myFields = testDate.getISOFields();
-				return new Construct (myFields.isoYear, myFields.isoMonth, myFields.isoDay, this)
+				return new Temporal.PlainDate (myFields)
 			}
 		}
 		else // here follow user's "e0", "e1" or "e2" indication; "e1" is considered like undefined.
@@ -734,7 +736,7 @@ class WesternCalendar {
 				if (Temporal.PlainDate.compare (testDate, WesternCalendar.firstSwitchDate) < 0) throw WesternCalendar.invalidEra
 				else {
 					let myFields = testDate.getISOFields();
-					return new Construct (myFields.isoYear, myFields.isoMonth, myFields.isoDay, this)
+					return new Temporal.PlainDate (myFields)
 				}
 			}
 			else {	// user says an era of Julian calendar.
@@ -742,10 +744,10 @@ class WesternCalendar {
 				components.calendar = WesternCalendar.julianCalendar;
 				testDate = Temporal.PlainDate.from (components, options);
 				let myFields = testDate.getISOFields();
-				return new Construct (myFields.isoYear, myFields.isoMonth, myFields.isoDay, this)
+				return new Temporal.PlainDate (myFields)
 			}
 		}
-	yearMonthFromFields (askedComponents, options, Construct=Temporal.PlainYearMonth) {// options = {overflow : "constrain"}
+	yearMonthFromFields (askedComponents, options) {// options = {overflow : "constrain"}
 		var components = { ... askedComponents };
 		components.day = 1;
 		if (components.month == undefined) component.month = Number(components.monthCode.match(/\d+/)[0]);
@@ -753,15 +755,15 @@ class WesternCalendar {
 		if ( !JulianCalendar.checkYearFields (components, this.eras[0]) ) throw WesternCalendar.ambiguousElement; 
 		if (components.era != undefined && !this.eras.includes(components.era)) throw WesternCalendar.outOfRangeDateElement;
 		let myISOFields = this.dateFromFields(components, options).getISOFields(); // should be the calendar's field normalised, or with error thrown
-		return new Construct(myISOFields.isoYear, myISOFields.isoMonth, this, myISOFields.isoDay);
+		return new Temporal.PlainYearMonth (myISOFields);
 	}
-	monthDayFromFields (askedComponents, options, Construct=Temporal.PlainMonthDay) { // options = {overflow : "constrain"}
+	monthDayFromFields (askedComponents, options) { // options = {overflow : "constrain"}
 		var components = { ... askedComponents }; 
 		components.year = 2000;
 		if (components.month == undefined) component.month = Number(components.monthCode.match(/\d+/)[0]);
 		if (isNaN(components.month)) throw WesternCalendar.ambiguousElement;
 		let myISOFields = this.dateFromFields(components, options).getISOFields();
-		return new Construct(myISOFields.isoMonth, myISOFields.isoDay, this, myISOFields.isoYear);
+		return new Temporal.PlainMonthDay (myISOFields);
 	}
 	/* Methods for Temporal date-like properties
 	*/
@@ -828,14 +830,14 @@ class WesternCalendar {
 	Overflow occurs there only if day number does not exist in targer month. In such a case, the "constrain" action is to set the day to the highest existing value.
 	Days elements are then added or subtracted to the JD index of the first target date to yield the final targer date.
 	*/
-	dateAdd (date, duration, options, Construct=Temporal.PlainDate) {// Add a +/- duration - //options={overflow:"constrain"}
+	dateAdd (date, duration, options) {// Add a +/- duration - //options={overflow:"constrain"}
 		let components = this.fieldsFromDate(date), 
 			addedYearMonth = Chronos.divmod ( components.month + duration.months - 1, 12 );
 		components.year += (duration.years + addedYearMonth[0]); 
 		components.month = addedYearMonth[1] + 1; 
 		delete components.era; delete components.eraYear;
 		// overflow option handled in trying to build new date
-		let dateOne = this.dateFromFields (components, options, Construct); // stated options will do the job. 
+		let dateOne = this.dateFromFields (components, options); // stated options will do the job. 
 		// However, the case of "blackout" period may be not considered. Here the decision is to constrain day to the last of Julian epoch
 		components.calendar = "gregory";
 		let dateOneJD = JDISO.toCounter(dateOne.getISOFields()), 
@@ -847,7 +849,7 @@ class WesternCalendar {
 			};
 		// Finally add or subtract days to final result
 		let resultFields = JDISO.toIsoFields(JDISO.toCounter(dateOne.getISOFields()) + duration.weeks*this.daysInWeek(date) + duration.days);
-		return new Construct (resultFields.isoYear, resultFields.isoMonth, resultFields.isoDay, this)
+		return new Temporal.PlainDate (resultFields)
 	}
 	dateUntil (smaller, larger, options={largestUnit:"auto"}) {  //
 		switch (Temporal.PlainDate.compare(smaller, larger)) {
