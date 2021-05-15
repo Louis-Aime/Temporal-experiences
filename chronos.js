@@ -6,7 +6,8 @@ Contents:
  * WeekClock: a class that yields week figures for a specified week structure.
  * IsoCounter: a class for converting an ISO 8601 date to or from any integer or decimal day counter, whose zero value is the ISO date specified at instantiation.
 */
-/* Version	M2021-01-19	fix Reference Error in IsoCounter.toIsoFields
+/* Version	M2021-05-25 (Branch) Map for isoFields
+	M2021-01-19	fix Reference Error in IsoCounter.toIsoFields
 	M2021-01-09, new version with no backward compatibility
 		Collect conversion coefficients in a separate Milliseconds object
 		Collect week computations in a separate class, fix a bug for non-regular week system
@@ -346,13 +347,14 @@ class IsoCounter {
 	}
 	/** Compute ISO8601 date figures from a number of days since epoch.
 	 * @param (number): the day counter, a counter representing a date. If not integer, the floor value is taken.
-	 * @return (Object): fields isoYear, isoMonth and isoDay specify the date in ISO8601 calendar.
+	 * @return (Iterable Object): fields isoYear, isoMonth and isoDay specify the date in ISO8601 calendar.
 	*/
 	toIsoFields = function ( counter ) {
+// special version with an iterable result
 		if (isNaN (counter) ) throw notANumber;
 		let myFields = this.clockwork.getObject (Math.floor (counter));
 		[myFields.isoYear, myFields.isoMonth] = Chronos.shiftCycle (myFields.isoYear, myFields.isoMonth, 12, -2, 3); // replace last parameter if monthBase 0 is required
-		return myFields
+		return new Map ([[isoYear, myFields.isoYear], [isoMonth, myFields.isoMonth], [isoDay, myField.isoDay]])
 	}
 }
 // export {Milliseconds, Chronos, WeekClock, IsoCounter}
