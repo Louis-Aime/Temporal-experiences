@@ -355,9 +355,9 @@ class IsoCounter {
 		[myFields.isoYear, myFields.isoMonth] = Chronos.shiftCycle (myFields.isoYear, myFields.isoMonth, 12, -2, 3); // replace last parameter if monthBase 0 is required
 		return myFields
 	}
-	/** Compute ISO8601 date figures from getISOFields result
-	 * @param (number): the day counter, a counter representing a date. If not integer, the floor value is taken.
-	 * @return (Array): [isoYear, isoMonth, isoDay] specify the date in ISO8601 calendar.
+	/** Compute ISO8601 date figures from object resulting from getISOFields() or toIsoFields()
+	 * @param (Object): An object with the fields isoYear, isoMonth and isoDay.
+	 * @return (Array): [isoYear, isoMonth, isoDay].
 	*/
 	toIsoList = function ( myFields ) {
 		return [myFields.isoYear, myFields.isoMonth, myFields.isoDay]
