@@ -1,6 +1,7 @@
 /* A selection of calendar for tries with Temporal
 */
-/* Version	M2021-05-25	Several changes in Temporal polyfill:
+/* Version	M2021-05-29	pu toIsoFields in this file, instead Chronos
+	M2021-05-25	Several changes in Temporal polyfill:
 		suppress "Construct" field
 		specify default options
 		use a "isoArgs" array when calling with a list of iso arguments (and not object)
@@ -58,7 +59,13 @@ Inquiries: www.calendriermilesien.org
 */
 "use strict";
 const JDISO = new IsoCounter (-4713, 11, 24);		// Julian Day to ISO fields and the reverse
-	 
+/** Compute ISO8601 date figures from object resulting from getISOFields() or toIsoFields()
+ * @param (Object): An object with the fields isoYear, isoMonth and isoDay.
+ * @return (Array): [isoYear, isoMonth, isoDay].
+*/
+const toIsoList = function ( myFields ) {
+	return [myFields.isoYear, myFields.isoMonth, myFields.isoDay]
+}
 const isoWeeks = {	// The week fields with the ISO rules
 	isoWeekClock : new WeekClock ({
 		originWeekday: 1, 	// Julian Day 0 is a Monday
@@ -178,7 +185,7 @@ class MilesianCalendar {
 		let upperDay = MilesianCalendar.internalDaysInMonth ( components.month, Chronos.isGregorianLeapYear(components.year + 1) );
 		if (components.day > upperDay) if (options.overflow == "constrain") { components.day = upperDay } else throw MilesianCalendar.dateOverflow;
 		// compute day index from elements, compute isoFields and return.
-		let isoFields = JDISO.toIsoList (JDISO.toIsoFields ( (this.calendarClockwork.getNumber(components))));
+		let isoFields = toIsoList (JDISO.toIsoFields ( (this.calendarClockwork.getNumber(components))));
 		isoFields.push (this);
 		return new Temporal.PlainDate (...isoFields);
 	}
@@ -195,7 +202,7 @@ class MilesianCalendar {
 		if (components.month < 1) if (options.overflow == "constrain") { components.month = 1 } else throw MilesianCalendar.dateOverflow;
 		if (components.month > 12 ) if (options.overflow == "constrain") { components.month = 12 } else throw MilesianCalendar.dateOverflow;
 		components.day = 1;
-		let isoFields = JDISO.toIsoList (JDISO.toIsoFields ( (this.calendarClockwork.getNumber(components))));
+		let isoFields = toIsoList (JDISO.toIsoFields ( (this.calendarClockwork.getNumber(components))));
 		isoFields.push (this, isoFields.pop()); 
 		return new Temporal.PlainYearMonth (...isoFields);
 	}
@@ -217,7 +224,7 @@ class MilesianCalendar {
 			if (options.overflow == "constrain") { components.day = 30 + (Chronos.mod (components.month, 2) == 0 ? 1 : 0) } else throw MilesianCalendar.dateOverflow;
 		// (components.month == 12 && components.day == 31) ? 1999 : 2000;
 		components.year = 1999; // in this isoYear, there is a 31 12m. 
-		let isoFields = JDISO.toIsoList (JDISO.toIsoFields ( (this.calendarClockwork.getNumber(components))));
+		let isoFields = toIsoList (JDISO.toIsoFields ( (this.calendarClockwork.getNumber(components))));
 		isoFields.push(this,isoFields.shift());
 		return new Temporal.PlainMonthDay (...isoFields);
 	}
@@ -266,7 +273,7 @@ class MilesianCalendar {
 		// dateFromFields shall handle overflow option
 		let dateOne = this.dateFromFields (components, options);
 		// 2. Add or subtract days to first step result
-		let resultFields = JDISO.toISOList(JDISO.toIsoFields(JDISO.toCounter(dateOne.getISOFields()) + duration.weeks*this.daysInWeek(date) + duration.days));
+		let resultFields = toIsoList(JDISO.toIsoFields(JDISO.toCounter(dateOne.getISOFields()) + duration.weeks*this.daysInWeek(date) + duration.days));
 		resultFields.push (this);
 		return new Temporal.PlainDate (...resultFields);
 	}
@@ -446,7 +453,7 @@ class JulianCalendar  {
 		let upperDay = JulianCalendar.internalDaysInMonth(components.month, Chronos.isJulianLeapYear(components.year));
 		if (components.day > upperDay) if (options.overflow == "constrain") {components.day = upperDay} else throw JulianCalendar.dateOverflow;
 		// All controls done, now translate fields into day-index from epoch and return a PlainDate.
-		let isoFields = JDISO.toIsoList (JDISO.toIsoFields( (this.calendarClockwork.getNumber(JulianCalendar.shiftYearStart(components,2,0)))));
+		let isoFields = toIsoList (JDISO.toIsoFields( (this.calendarClockwork.getNumber(JulianCalendar.shiftYearStart(components,2,0)))));
 		isoFields.push (this);
 		return new Temporal.PlainDate (...isoFields);
 	}
@@ -462,7 +469,7 @@ class JulianCalendar  {
 		if (isNaN(components.month)) throw JulianCalendar.ambiguousElement;
 		if (askedComponents.era != undefined) components.era = askedComponents.era;
 		if ( !JulianCalendar.checkYearFields (components, this.eras[0]) ) throw JulianCalendar.ambiguousElement; 	// This solves the year field 
-		let isoFields = JDISO.toIsoList (JDISO.toIsoFields( (this.calendarClockwork.getNumber(JulianCalendar.shiftYearStart(components,2,0)))));
+		let isoFields = toIsoList (JDISO.toIsoFields( (this.calendarClockwork.getNumber(JulianCalendar.shiftYearStart(components,2,0)))));
 		isoFields.push (this, isoFields.pop()); 
 		return new Temporal.PlainYearMonth (...isoFields);
 	}
@@ -476,7 +483,7 @@ class JulianCalendar  {
 		components.year = 2000;
 		if (components.month == undefined) components.month = Number(components.monthCode.match(/\d+/)[0]);
 		if (isNaN(components.month)) throw JulianCalendar.ambiguousElement;
-		let isoFields = JDISO.toIsoList (JDISO.toIsoFields( (this.calendarClockwork.getNumber(JulianCalendar.shiftYearStart(components,2,0)))));
+		let isoFields = toIsoList (JDISO.toIsoFields( (this.calendarClockwork.getNumber(JulianCalendar.shiftYearStart(components,2,0)))));
 		isoFields.push(this,isoFields.shift());
 		return new Temporal.PlainMonthDay (...isoFields);
 	}
@@ -527,7 +534,7 @@ class JulianCalendar  {
 		// overflow option handled in trying to build new date
 		let dateOne = this.dateFromFields (components, options); // stated options will do the job
 		// 2. Add or subtract days to final result
-		let resultFields = JDISO.toIsoList(JDISO.toIsoFields(JDISO.toCounter(dateOne.getISOFields()) + duration.weeks*this.daysInWeek(date) + duration.days));
+		let resultFields = toIsoList(JDISO.toIsoFields(JDISO.toCounter(dateOne.getISOFields()) + duration.weeks*this.daysInWeek(date) + duration.days));
 		resultFields.push (this);
 		return new Temporal.PlainDate (...resultFields);
 	}
@@ -807,7 +814,7 @@ class WesternCalendar {
 		if (isNaN(components.month)) throw WesternCalendar.missingElement;
 		if ( !JulianCalendar.checkYearFields (components, this.eras[0]) ) throw WesternCalendar.ambiguousElement; 
 		if (components.era != undefined && !this.eras.includes(components.era)) throw WesternCalendar.outOfRangeDateElement;
-		let isoFields = JDISO.toIsoList (this.dateFromFields (components, options).getISOFields());
+		let isoFields = toIsoList (this.dateFromFields (components, options).getISOFields());
 		isoFields.push (this, isoFields.pop()); 
 		return new Temporal.PlainYearMonth (...isoFields);
 	}
@@ -821,7 +828,7 @@ class WesternCalendar {
 		components.year = 2000;
 		if (components.month == undefined) components.month = Number(components.monthCode.match(/\d+/)[0]);
 		if (isNaN(components.month)) throw WesternCalendar.ambiguousElement;
-		let isoFields = JDISO.toIsoList (this.dateFromFields (components, options).getISOFields());
+		let isoFields = toIsoList (this.dateFromFields (components, options).getISOFields());
 		isoFields.push(this,isoFields.shift());
 		return new Temporal.PlainMonthDay (...isoFields);
 	}
@@ -909,7 +916,7 @@ class WesternCalendar {
 				default : throw WesternCalendar.invalidOption;
 			};
 		// Finally add or subtract days to final result
-		let resultFields = JDISO.toIsoList(JDISO.toIsoFields(JDISO.toCounter(dateOne.getISOFields()) + duration.weeks*this.daysInWeek(date) + duration.days));
+		let resultFields = toIsoList(JDISO.toIsoFields(JDISO.toCounter(dateOne.getISOFields()) + duration.weeks*this.daysInWeek(date) + duration.days));
 		resultFields.push (this);
 		return new Temporal.PlainDate (...resultFields)
 	}
