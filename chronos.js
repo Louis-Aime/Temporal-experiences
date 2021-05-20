@@ -6,7 +6,8 @@ Contents:
  * WeekClock: a class that yields week figures for a specified week structure.
  * IsoCounter: a class for converting an ISO 8601 date to or from any integer or decimal day counter, whose zero value is the ISO date specified at instantiation.
 */
-/* Version	M2021-05-25	add function isoList, gives the ISO coordinates as as array
+/* Version	M2021-05-29	IsoList suppressed from this file, inserted in calendars.js
+	M2021-05-25	add function isoList, gives the ISO coordinates as as array
 	M2021-01-19	fix Reference Error in IsoCounter.toIsoFields
 	M2021-01-09, new version with no backward compatibility
 		Collect conversion coefficients in a separate Milliseconds object
@@ -354,13 +355,6 @@ class IsoCounter {
 		let myFields = this.clockwork.getObject (Math.floor (counter));
 		[myFields.isoYear, myFields.isoMonth] = Chronos.shiftCycle (myFields.isoYear, myFields.isoMonth, 12, -2, 3); // replace last parameter if monthBase 0 is required
 		return myFields
-	}
-	/** Compute ISO8601 date figures from object resulting from getISOFields() or toIsoFields()
-	 * @param (Object): An object with the fields isoYear, isoMonth and isoDay.
-	 * @return (Array): [isoYear, isoMonth, isoDay].
-	*/
-	toIsoList = function ( myFields ) {
-		return [myFields.isoYear, myFields.isoMonth, myFields.isoDay]
 	}
 }
 // export {Milliseconds, Chronos, WeekClock, IsoCounter}
