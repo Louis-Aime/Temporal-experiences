@@ -1,6 +1,12 @@
 /* A selection of calendar for tries with Temporal
 */
-/* Version	M2021-05-29	pu toIsoFields in this file, instead Chronos
+/* Version	M2021-06-17
+		Collect all field checks in a common internal class, with common routines used with Temporal
+		set all options tags in singular e.g. 'day' instead of 'days'
+		fix bad use of isoFields (isoArray) in WesternCalendar
+		enforce similar date field control in all calendars
+		Generate all error messages near corresponding code
+	M2021-05-29	put toIsoFields in this file, instead of Chronos
 	M2021-05-25	Several changes in Temporal polyfill:
 		suppress "Construct" field
 		specify default options
@@ -63,8 +69,51 @@ const JDISO = new IsoCounter (-4713, 11, 24);		// Julian Day to ISO fields and t
  * @param (Object): An object with the fields isoYear, isoMonth and isoDay.
  * @return (Array): [isoYear, isoMonth, isoDay].
 */
-const toIsoList = function ( myFields ) {
-	return [myFields.isoYear, myFields.isoMonth, myFields.isoDay]
+class TemporalCheck {
+	static toIsoArray ( myFields) { return [myFields.isoYear, myFields.isoMonth, myFields.isoDay] }
+	static checkOverflowOption (options) {
+		switch (options.overflow) {
+			case undefined : options.overflow = "constrain"; break;
+			case "constrain" : case "reject" : break;
+			default : throw new RangeError ("Unknown option for 'overflow': " + options.overflow);
+		}
+		return options.overflow;
+	}
+/** Check that year components are complete and do not contradict each other, return the year's scalar value or throws if incomplete
+ * @param (Object) components: the date components.
+ * @param (Array) eras: the list of eras for this calendar. It is assumed that eras[0] is backward, i.e. 1-y mode, and that year = eraYear all other eras.
+ * @return (Number) : the scalar year value.
+*/
+	static getYearFromFields (components, eras) {
+		if ( components.era != undefined) if (! eras.includes(components.era))
+			throw new RangeError ("Unknown era value in this calendar: " + components.era);
+		if ((components.era != undefined) != (components.eraYear != undefined)) 
+			throw new TypeError ("Properties 'era' and 'eraYear' should be specified together.");
+		if ( (components.year == undefined) 
+			&& (components.eraYear == undefined || components.era == undefined) ) 
+			throw new TypeError ("Incomplete or missing year specification.");
+		if ( components.year != undefined && components.eraYear != undefined && 
+			components.year != components.eraYear && (components.era != eras[0] || components.year != 1 - components.eraYear) )
+			throw new RangeError ("Relative year " + components.year + " does not match era and eraYear: " + components.era + " " + components.eraYear); 
+		if (components.year == undefined) 
+			{ return components.era == eras[0] ? 1 - components.eraYear : components.eraYear }
+			else return components.year;
+	}
+/** Check that month and monthCode components are complete and do not contradict each other, return the month's numeric value or throws if incomplete
+ * @param (Object) components: the date components.
+ * @param (RegExp) reg: the Rgular Expression (regexp) for a month code in this calendar
+ * @return (Number): the month number.
+*/
+	static getMonthFromFields (components, reg) {
+		let m = components.month;
+		if (components.monthCode != undefined) if (! reg.test (components.monthCode) ) 
+			throw new RangeError ("Unknown month code for the target calendar: " + components.monthCode);
+		if (components.month == undefined) m = Number(components.monthCode.match(/\d+/)[0]);
+		if (components.monthCode != undefined) if (m != Number(components.monthCode.match(/\d+/)[0]))
+			throw new RangeError ("Computed month number " + m + " differs from month code " + components.monthCode);
+		if (isNaN(m)) throw new TypeError("Wrong type or missing value for month: " + components.month);
+		return m
+	}
 }
 const isoWeeks = {	// The week fields with the ISO rules
 	isoWeekClock : new WeekClock ({
@@ -90,21 +139,17 @@ class MilesianCalendar {
 	constructor (id) {
 		this.id = id;
 	}
-	/* Errors
-	*/
-	static missingElement = new TypeError ("missing date element")
-	static ambiguousElement = new TypeError ("ambiguous date elements")
-	static missingOption = new TypeError ("expected option missing")
-	static invalidOption = new RangeError ("unknown option")
-	static dateOverflow = new RangeError ("invalid date") // thrown in case of overflow : reject option
 	/* Basics for interaction with Temporal objects (this.id is forced in constructor)
 	*/
 	toString () {return this.id}
 	toJSON ()  {return this.id}
+	monthCodeFrame = /^[1-9]m$|^1[0-2]m$/
 	fields (theFields) {return theFields} // nothing to add to the standard fields year, month, monthCode, day
 	mergeFields (fields, additionalFields) {	// additional fields should replace fields if existing
 		let returnFields = {...fields }; 	// prepare return value
-		if (additionalFields.monthCode != undefined && additionalFields.month != undefined) throw MilesianCalendar.ambiguousElement; // Checked by Temporal objects ?
+		if ((additionalFields.monthCode != undefined) == (additionalFields.month != undefined)) 
+			throw new TypeError ('Only one of month or month code shall be specified :' + additionalFields.month + ' or ' + additionalFields.monthCode);
+		// MilesianCalendar.ambiguousElement; // Checked by Temporal objects ?
 		if (additionalFields.monthCode != undefined) delete returnFields.month;
 		if (additionalFields.month != undefined) delete returnFields.monthCode;
 		return Object.assign(returnFields, additionalFields)
@@ -160,73 +205,68 @@ class MilesianCalendar {
 	*/ 
 	dateFromFields (askedComponents, options={overflow : 'constrain'}) { // default value necessary when this routine is called by Temporal's other
 		var components = { ... askedComponents }; 
-		// Temporal initialises and checks options parameter
+		// it is assumed that Temporal does not initialise neither check options parameter, since custom value are possible.
 		// Temporal throws non-numeric values for date parameters
 		// Temporal checks completeness
 		// Check how month is specified. Priority to existing numeric month. Else, extract month number by any means
-		switch (options.overflow) {
-			case undefined : options.overflow = "constrain"; break;
-			case "constrain" : case "reject" : break;
-			default : throw MilesianCalendar.invalidOption;
-		}
-		if (isNaN(components.year)) throw MilesianCalendar.missingElement;
-		if (components.month == undefined) components.month = Number(components.monthCode.match(/\d+/)[0]);
-		if (isNaN(components.month)) throw MilesianCalendar.missingElement;
-		// First constrain month. If outside 1..12, set to first resp. last day of year.
-		if (components.month < 1) if (options.overflow == "constrain") { components.month = 1; components.day = 1 } else throw MilesianCalendar.dateOverflow;
+		TemporalCheck.checkOverflowOption (options);
+		// components.year = TemporalCheck.getYearFromFields (components, this.eras);
+		if (isNaN(components.year)) throw new TypeError ("Wrong type or missing value for year: " + components.year);
+		components.month = TemporalCheck.getMonthFromFields (components, this.monthCodeFrame);
+		if (components.month < 1) if (options.overflow == "constrain") { components.month = 1; components.day = 1 } 
+			else throw new RangeError ("Out of range value for Milesian month: " + components.month);
 		if (components.month > 12) if (options.overflow == "constrain") { 
 				components.month = 12; 
 				components.day = MilesianCalendar.internalDaysInMonth ( 12, Chronos.isGregorianLeapYear(components.year + 1) )
 			} 
-			else throw MilesianCalendar.dateOverflow;
+			else throw new RangeError ("Out of range value for Milesian month: " + components.month);
 		// Now, month is in good range, constrain day
-		if (isNaN(components.day)) throw MilesianCalendar.missingElement;
-		if (components.day < 1) if (options.overflow == "constrain") { components.day = 1 } else throw MilesianCalendar.dateOverflow;
+		if (isNaN(components.day)) throw new TypeError("Wrong type or missing value for day: " + components.day);	// MilesianCalendar.missingElement;
+		if (components.day < 1) if (options.overflow == "constrain") { components.day = 1 } 
+			else throw new RangeError ("Out of range value for day: " + components.day);	// MilesianCalendar.dateOverflow;
 		let upperDay = MilesianCalendar.internalDaysInMonth ( components.month, Chronos.isGregorianLeapYear(components.year + 1) );
-		if (components.day > upperDay) if (options.overflow == "constrain") { components.day = upperDay } else throw MilesianCalendar.dateOverflow;
-		// compute day index from elements, compute isoFields and return.
-		let isoFields = toIsoList (JDISO.toIsoFields ( (this.calendarClockwork.getNumber(components))));
-		isoFields.push (this);
-		return new Temporal.PlainDate (...isoFields);
+		if (components.day > upperDay) if (options.overflow == "constrain") { components.day = upperDay } 
+			else throw new RangeError 
+				("Out of range value for day: " + components.day + " in Milesian month " + components.month + " and year " + components.year);
+		// compute day index from elements, compute corresponding ISO elements, elaborate Temporal.Plaindate.
+		let isoArray = TemporalCheck.toIsoArray (JDISO.toIsoFields ( (this.calendarClockwork.getNumber(components))));
+		isoArray.push (this);
+		return new Temporal.PlainDate (...isoArray);
 	}
 	yearMonthFromFields (askedComponents, options={overflow : 'constrain'}) {
 		var components = { ... askedComponents }; 
-		switch (options.overflow) {
-			case undefined : options.overflow = "constrain"; break;
-			case "constrain" : case "reject" : break;
-			default : throw MilesianCalendar.invalidOption;
-		}
-		if (isNaN(components.year)) throw MilesianCalendar.missingElement;
-		if (components.month == undefined) components.month = Number(components.monthCode.match(/\d+/)[0]);
-		if (isNaN(components.month)) throw MilesianCalendar.missingElement;
-		if (components.month < 1) if (options.overflow == "constrain") { components.month = 1 } else throw MilesianCalendar.dateOverflow;
-		if (components.month > 12 ) if (options.overflow == "constrain") { components.month = 12 } else throw MilesianCalendar.dateOverflow;
+		TemporalCheck.checkOverflowOption (options);
+		if (isNaN(components.year)) throw new TypeError ("Wrong type or missing value for year: " + components.year);
+		components.month = TemporalCheck.getMonthFromFields (components, this.monthCodeFrame);
+		if (components.month < 1) if (options.overflow == "constrain") { components.month = 1 } 
+			else throw new RangeError ("Out of range value for Milesian month: " + components.month);
+		if (components.month > 12) if (options.overflow == "constrain") { components.month = 12 } 
+			else throw new RangeError ("Out of range value for Milesian month: " + components.month);
 		components.day = 1;
-		let isoFields = toIsoList (JDISO.toIsoFields ( (this.calendarClockwork.getNumber(components))));
-		isoFields.push (this, isoFields.pop()); 
-		return new Temporal.PlainYearMonth (...isoFields);
+		let isoArray = TemporalCheck.toIsoArray (JDISO.toIsoFields ( (this.calendarClockwork.getNumber(components))));
+		isoArray.push (this, isoArray.pop()); 
+		return new Temporal.PlainYearMonth (...isoArray);
 	}
 	monthDayFromFields (askedComponents, options={overflow : 'constrain'}) { 
 		var components = { ... askedComponents };
-		switch (options.overflow) {
-			case undefined : options.overflow = "constrain"; break;
-			case "constrain" : case "reject" : break;
-			default : throw MilesianCalendar.invalidOption;
-		}
-		if (components.month == undefined) components.month = Number(components.monthCode.match(/\d+/)[0]);
-		if (isNaN(components.month)) throw MilesianCalendar.missingElement;
-		if (components.month < 1) if (options.overflow == "constrain") { components.month = 1; components.day = 1 } else throw MilesianCalendar.dateOverflow;
-		if (components.month > 12 ) if (options.overflow == "constrain") { components.month = 12;  components.day = 31 } 
-			else throw MilesianCalendar.dateOverflow;
-		if (isNaN(components.day)) throw MilesianCalendar.missingElement;
-		if (components.day < 1) if (options.overflow == "constrain") { components.day = 1 } else throw MilesianCalendar.dateOverflow;
-		if (components.day > 31 || ( components.day == 31 && Chronos.mod (components.month, 2) == 1 ))  
-			if (options.overflow == "constrain") { components.day = 30 + (Chronos.mod (components.month, 2) == 0 ? 1 : 0) } else throw MilesianCalendar.dateOverflow;
+		TemporalCheck.checkOverflowOption (options);
+		components.month = TemporalCheck.getMonthFromFields (components, this.monthCodeFrame);
+		if (components.month < 1) if (options.overflow == "constrain") { components.month = 1; components.day = 1 } 
+			else throw new RangeError ("Out of range value for Milesian month: " + components.month);
+		if (components.month > 12) if (options.overflow == "constrain") { components.month = 12; components.day = 31 } 
+			else throw new RangeError ("Out of range value for Milesian month: " + components.month);
+		// Now, month is in good range, constrain day
+		if (isNaN(components.day)) throw new TypeError("Wrong type or missing value for day: " + components.day);
+		if (components.day < 1) if (options.overflow == "constrain") { components.day = 1 } 
+			else throw new RangeError ("Out of range value for day: " + components.day);
+		let upperDay = MilesianCalendar.internalDaysInMonth ( components.month, true );
+		if (components.day > upperDay) if (options.overflow == "constrain") { components.day = upperDay } 
+			else throw new RangeError ("Out of range value for day: " + components.day + " in Milesian month " + components.month);
 		// (components.month == 12 && components.day == 31) ? 1999 : 2000;
 		components.year = 1999; // in this isoYear, there is a 31 12m. 
-		let isoFields = toIsoList (JDISO.toIsoFields ( (this.calendarClockwork.getNumber(components))));
-		isoFields.push(this,isoFields.shift());
-		return new Temporal.PlainMonthDay (...isoFields);
+		let isoArray = TemporalCheck.toIsoArray (JDISO.toIsoFields ( (this.calendarClockwork.getNumber(components))));
+		isoArray.push(this,isoArray.shift());
+		return new Temporal.PlainMonthDay (...isoArray);
 	}
 	/* Methods for elements of date
 	*/
@@ -258,7 +298,7 @@ class MilesianCalendar {
 		return fields.year + fields.weekYearOffset
 	}
 	/* Methods for use with Duration.
-	duration parameter passed is already set to smallestUnit : days.
+	duration parameter passed is already set to smallestUnit : day (in singular).
 	Weeks elements, if existing, are consolidated into days.
 	Months and years elements are first added (or subtracted if minus sign) to obtain a date element with same day number.
 	Overflow occurs there only if day number does not exist in targer month. In such a case, the "constrain" action is to set the day to the highest existing value.
@@ -273,13 +313,13 @@ class MilesianCalendar {
 		// dateFromFields shall handle overflow option
 		let dateOne = this.dateFromFields (components, options);
 		// 2. Add or subtract days to first step result
-		let resultFields = toIsoList(JDISO.toIsoFields(JDISO.toCounter(dateOne.getISOFields()) + duration.weeks*this.daysInWeek(date) + duration.days));
+		let resultFields = TemporalCheck.toIsoArray(JDISO.toIsoFields(JDISO.toCounter(dateOne.getISOFields()) + duration.weeks*this.daysInWeek(date) + duration.days));
 		resultFields.push (this);
 		return new Temporal.PlainDate (...resultFields);
 	}
 	dateUntil (smaller, larger, options={largestUnit:"auto"}) {
 		switch (Temporal.PlainDate.compare(smaller, larger)) {
-			case 1 : // throw MilesianCalendar.invalidOrder; break;
+			case 1 : 
 				let positiveDifference = this.dateUntil (larger, smaller, options);
 				return positiveDifference.negated(); break;
 			case 0 : return Temporal.Duration.from("P0D"); break;
@@ -303,14 +343,14 @@ class MilesianCalendar {
 					else { monthDiff = myLarger.month - mySmaller.month - withhold + 12; withhold = 1};
 				yearDiff = myLarger.year - mySmaller.year - withhold;
 				switch (options.largestUnit) {
-					case "years" : return Temporal.Duration.from({years: yearDiff, months: monthDiff, days: dayDiff}); break;
-					case "months": return Temporal.Duration.from({months: yearDiff*12+monthDiff, days: dayDiff}); break;
-					case "weeks" : 
+					case "year" : return Temporal.Duration.from({years: yearDiff, months: monthDiff, days: dayDiff}); break;
+					case "month": return Temporal.Duration.from({months: yearDiff*12+monthDiff, days: dayDiff}); break;
+					case "week" : 
 						let weekDayCompound = Chronos.divmod (myDayOffset, smaller.daysInWeek);
 						return Temporal.Duration.from({weeks : weekDayCompound[0], days : weekDayCompound[1]}); break;
 					case undefined : case "auto"  : 
-					case "days" : return Temporal.Duration.from({ days: myDayOffset }); break;
-					default: throw MilesianCalendar.invalidOption
+					case "day" : return Temporal.Duration.from({ days: myDayOffset }); break;
+					default : throw new RangeError ("Unknown option for 'largestUnit': " + options.largestUnit);
 				}
 			break; // just to close case -1
 		}
@@ -336,6 +376,10 @@ class JulianCalendar  {
 		this.w1Day = w1Day;	// the day number in January that characterises the first week, 4 by default.
 		this.id = id;
 	}
+	/* Basic data
+	*/
+	eras = ["e0", "e1"]	// basic codes for eras should always be in small letters
+	monthCodeFrame = /^M0[1-9]$|^M1[0-2]$/	// M01 to M12, may be changed by instantiating
 	/* Errors
 	*/
 	static missingElement = new TypeError ("missing date element")
@@ -356,19 +400,23 @@ class JulianCalendar  {
 	}
 	mergeFields (fields, additionalFields) {	// monthCode converted to month ; [era, eraYera] shall throw [year] out
 		let returnFields = {...fields }; 	// prepare return value
-		if (additionalFields.monthCode != undefined && additionalFields.month != undefined) throw JulianCalendar.ambiguousElement; // Checked by Temporal objects ?
+		if ((additionalFields.monthCode != undefined) == (additionalFields.month != undefined)) 
+			throw new TypeError ('Only one of month or month code shall be specified :' + additionalFields.month + ' or ' + additionalFields.monthCode);
 		if (additionalFields.monthCode != undefined) delete returnFields.month;
 		if (additionalFields.month != undefined) delete returnFields.monthCode;
-		if ((additionalFields.eraYear != undefined) != (additionalFields.era != undefined)) throw JulianCalendar.missingElement; // Checked by Temporal objects ?
-		if (additionalFields.year != undefined && additionalFields.eraYear != undefined) throw JulianCalendar.ambiguousElement; // Checked by Temporal objects ?
+		if ((additionalFields.eraYear != undefined) != (additionalFields.era != undefined)) 
+			throw new TypeError ('Both or none of "era" and "eraYear" should be specified. era: ' 
+			+ additionalFields.era + ', eraYear: ' + additionalFields.eraYear); // Checked by Temporal objects ?
+		if (additionalFields.year != undefined && additionalFields.eraYear != undefined) 
+			throw new TypeError ('Only "year" (signed) or "eraYear" (unsigned and together with "era") may be specified. ' 
+			+ additionalFields.year + ' or ' + additionalFields.eraYear) 	// Checked by Temporal objects ?
 		if (additionalFields.year != undefined) { delete returnFields.eraYear; delete returnFields.era };
 		if (additionalFields.eraYear != undefined ) delete returnFields.year;
 		return Object.assign(returnFields, additionalFields)
 	}
-	eras = ["e0", "e1"]	// basic codes for eras should always be in small letters
 	/* Basics data and computing options
 	*/
-	calendarClockwork = new Chronos ({ // To be used with day counter from Julian 0000-03-01 ie ISO 0000-02-28. Decompose into Julian years, months, date.
+	calendarClockwork = new Chronos ({ // To be used with day counter from Julian 0000-03-01 ie ISO 0000-02-28. Decompose into Julian year, month, day (note date).
 		timeepoch : 1721118, // Julian day of 1 martius 0 i.e. 0000-02-28
 		coeff : [ 
 		  {cyclelength : 1461, ceiling : Infinity, subCycleShift : 0, multiplier : 4, target : "year"}, // 4 Julian years
@@ -405,17 +453,6 @@ class JulianCalendar  {
 						? 30 
 						: isLeap ? 29 : 28 );
 	}
-	static checkYearFields (components, BCEra) {	// Check that fields are complete and do not contradict each other, establish .year. Only the BC era is checked.
-		if ( (components.year == undefined) 
-			&& (components.eraYear == undefined || components.era == undefined) ) 
-			throw JulianCalendar.missingElement; // year must be defined in some way
-		if (components.era == undefined && components.eraYear != undefined) throw JulianCalendar.ambiguousElement;	// if era not defined, eraYear should not be used
-		if ( components.year != undefined && components.eraYear != undefined && 
-			components.year != components.eraYear && (components.era != BCEra || components.year != 1 - components.eraYear) )
-			throw JulianCalendar.ambiguousElement;	// Year indications contradict each other
-		if (components.year == undefined) components.year = components.era == BCEra ? 1 - components.eraYear : components.eraYear;
-		return true
-	}
 	fieldsFromDate (date) {	// compute essential fields for  this calendar, after isoFields of any date. Week fields computed separately, on demand.
 		var fields = JulianCalendar.shiftYearStart(this.calendarClockwork.getObject(JDISO.toCounter (date.getISOFields())),-2,2);	// numeric fields, with algebraic year
 		[ fields.era, fields.eraYear ] = fields.year < 1 ? [ this.eras[0], 1 - fields.year ]: [ this.eras [1], fields.year ];
@@ -435,57 +472,59 @@ class JulianCalendar  {
 	dateFromFields (askedComponents, options={overflow : "constrain"}) {
 		var components = { ...askedComponents }; 
 		// check parameter values
-		switch (options.overflow) {
-			case undefined : options.overflow = "constrain"; break;
-			case "constrain" : case "reject" : break;
-			default : throw MilesianCalendar.invalidOption;
-		}
-		if (components.month == undefined) components.month = Number(components.monthCode.match(/\d+/)[0]);
-		if (isNaN(components.month)) throw JulianCalendar.ambiguousElement;
-		// Check that all necessary fields are present and do not contradict each other. user may either submit era and eraYear, or submit year as a relative number, without era
-		if ( !JulianCalendar.checkYearFields (components, this.eras[0]) ) throw JulianCalendar.ambiguousElement; 	// This solves the year field
-		// Check for valid era in this specific calendar
-		if (components.era != undefined && !this.eras.includes(components.era)) throw JulianCalendar.outOfRangeDateElement;
+		TemporalCheck.checkOverflowOption (options);
+		components.year = TemporalCheck.getYearFromFields (components, this.eras);
+		components.month = TemporalCheck.getMonthFromFields (components, this.monthCodeFrame);
 		// check data agains overflow option, constrain or reject for each overflow case.
-		if (components.month < 1) if (options.overflow == "constrain") {components.month = 1; components.day = 1} else throw JulianCalendar.dateOverflow;
-		if (components.month > 12) if (options.overflow == "constrain") {components.month = 12; components.day = 31} else throw JulianCalendar.dateOverflow;
-		if (components.day < 1) if (options.overflow == "constrain") {components.day = 1} else throw JulianCalendar.dateOverflow;
+		if (isNaN(components.day)) throw new TypeError("Wrong type or missing value for day: " + components.day);
+		if (components.month < 1) if (options.overflow == "constrain") {components.month = 1; components.day = 1} 
+			else throw new RangeError ("Out of range value for Julian calendar month: " + components.month);
+		if (components.month > 12) if (options.overflow == "constrain") {components.month = 12; components.day = 31} 
+			else throw new RangeError ("Out of range value for Julian calendar month: " + components.month);
+		if (components.day < 1) if (options.overflow == "constrain") {components.day = 1} 
+			else throw new RangeError ("Out of range value for day: " + components.day); //JulianCalendar.dateOverflow;
 		let upperDay = JulianCalendar.internalDaysInMonth(components.month, Chronos.isJulianLeapYear(components.year));
-		if (components.day > upperDay) if (options.overflow == "constrain") {components.day = upperDay} else throw JulianCalendar.dateOverflow;
+		if (components.day > upperDay) if (options.overflow == "constrain") {components.day = upperDay} 
+			else throw new RangeError 
+				("Out of range value for day: " + components.day + " in Julian month " + components.month + " and year " + components.year);
 		// All controls done, now translate fields into day-index from epoch and return a PlainDate.
-		let isoFields = toIsoList (JDISO.toIsoFields( (this.calendarClockwork.getNumber(JulianCalendar.shiftYearStart(components,2,0)))));
-		isoFields.push (this);
-		return new Temporal.PlainDate (...isoFields);
+		let isoArray = TemporalCheck.toIsoArray (JDISO.toIsoFields( (this.calendarClockwork.getNumber(JulianCalendar.shiftYearStart(components,2,0)))));
+		isoArray.push (this);
+		return new Temporal.PlainDate (...isoArray);
 	}
 	yearMonthFromFields (askedComponents, options={overflow : 'constrain'}) {
 		var components = { ... askedComponents }; 
-		switch (options.overflow) {
-			case undefined : options.overflow = "constrain"; break;
-			case "constrain" : case "reject" : break;
-			default : throw MilesianCalendar.invalidOption;
-		}
+		TemporalCheck.checkOverflowOption (options);
+		components.year =  TemporalCheck.getYearFromFields (components, this.eras);
+		components.month = TemporalCheck.getMonthFromFields (components, this.monthCodeFrame);
+		if (components.month < 1) if (options.overflow == "constrain") {components.month = 1; components.day = 1} 
+			else throw new RangeError ("Out of range value for Julian calendar month: " + components.month);
+		if (components.month > 12) if (options.overflow == "constrain") {components.month = 12; components.day = 31} 
+			else throw new RangeError ("Out of range value for Julian calendar month: " + components.month);
 		components.day = 1;		// set to the first day of month in Julian calendar
-		if (components.month == undefined) components.month = Number(components.monthCode.match(/\d+/)[0]);
-		if (isNaN(components.month)) throw JulianCalendar.ambiguousElement;
-		if (askedComponents.era != undefined) components.era = askedComponents.era;
-		if ( !JulianCalendar.checkYearFields (components, this.eras[0]) ) throw JulianCalendar.ambiguousElement; 	// This solves the year field 
-		let isoFields = toIsoList (JDISO.toIsoFields( (this.calendarClockwork.getNumber(JulianCalendar.shiftYearStart(components,2,0)))));
-		isoFields.push (this, isoFields.pop()); 
-		return new Temporal.PlainYearMonth (...isoFields);
+		let isoArray = TemporalCheck.toIsoArray (JDISO.toIsoFields( (this.calendarClockwork.getNumber(JulianCalendar.shiftYearStart(components,2,0)))));
+		isoArray.push (this, isoArray.pop()); 
+		return new Temporal.PlainYearMonth (...isoArray);
 	}
 	monthDayFromFields (askedComponents, options={overflow : 'constrain'}) {
 		var components = { ... askedComponents }; 
-		switch (options.overflow) {
-			case undefined : options.overflow = "constrain"; break;
-			case "constrain" : case "reject" : break;
-			default : throw MilesianCalendar.invalidOption;
-		}
+		TemporalCheck.checkOverflowOption (options);
 		components.year = 2000;
-		if (components.month == undefined) components.month = Number(components.monthCode.match(/\d+/)[0]);
-		if (isNaN(components.month)) throw JulianCalendar.ambiguousElement;
-		let isoFields = toIsoList (JDISO.toIsoFields( (this.calendarClockwork.getNumber(JulianCalendar.shiftYearStart(components,2,0)))));
-		isoFields.push(this,isoFields.shift());
-		return new Temporal.PlainMonthDay (...isoFields);
+		components.month = TemporalCheck.getMonthFromFields (components, this.monthCodeFrame);
+		if (isNaN(components.day)) throw new TypeError("Wrong type or missing value for day: " + components.day);
+		if (components.month < 1) if (options.overflow == "constrain") {components.month = 1; components.day = 1} 
+			else throw new RangeError ("Out of range value for Julian calendar month: " + components.month);
+		if (components.month > 12) if (options.overflow == "constrain") {components.month = 12; components.day = 31} 
+			else throw new RangeError ("Out of range value for Julian calendar month: " + components.month);
+		if (components.day < 1) if (options.overflow == "constrain") {components.day = 1} 
+			else throw new RangeError ("Out of range value for day: " + components.day); 
+		let upperDay = JulianCalendar.internalDaysInMonth(components.month, true);
+		if (components.day > upperDay) if (options.overflow == "constrain") {components.day = upperDay} 
+			else throw new RangeError 
+				("Out of range value for day: " + components.day + " in Julian month " + components.month);
+		let isoArray = TemporalCheck.toIsoArray (JDISO.toIsoFields( (this.calendarClockwork.getNumber(JulianCalendar.shiftYearStart(components,2,0)))));
+		isoArray.push(this,isoArray.shift());
+		return new Temporal.PlainMonthDay (...isoArray);
 	}
 	/* Methods for Temporal date-like properties
 	*/
@@ -518,7 +557,7 @@ class JulianCalendar  {
 		return fields.year + fields.weekYearOffset
 	}
 	/* Duration-connected methods. Read assumption hereunder.
-	duration parameter passed is already set to smallestUnit : days.
+	duration parameter passed is already set to smallestUnit : 'day'.
 	Weeks elements, if existing, are consolidated into days.
 	Months and years elements are first added (or subtracted if minus sign) to obtain a date element with same day number.
 	Overflow occurs there only if day number does not exist in target month. In such a case, the "constrain" action is to set the day to the highest existing value.
@@ -534,7 +573,7 @@ class JulianCalendar  {
 		// overflow option handled in trying to build new date
 		let dateOne = this.dateFromFields (components, options); // stated options will do the job
 		// 2. Add or subtract days to final result
-		let resultFields = toIsoList(JDISO.toIsoFields(JDISO.toCounter(dateOne.getISOFields()) + duration.weeks*this.daysInWeek(date) + duration.days));
+		let resultFields = TemporalCheck.toIsoArray(JDISO.toIsoFields(JDISO.toCounter(dateOne.getISOFields()) + duration.weeks*this.daysInWeek(date) + duration.days));
 		resultFields.push (this);
 		return new Temporal.PlainDate (...resultFields);
 	}
@@ -564,14 +603,14 @@ class JulianCalendar  {
 					else { monthDiff = myLarger.month - mySmaller.month - withhold + 12; withhold = 1};
 				yearDiff = myLarger.year - mySmaller.year - withhold;
 				switch (options.largestUnit) {
-					case "years" : return Temporal.Duration.from({years: yearDiff, months: monthDiff, days: dayDiff}); break;
-					case "months": return Temporal.Duration.from({months: yearDiff*12+monthDiff, days: dayDiff}); break;
-					case "weeks" : 
+					case "year" : return Temporal.Duration.from({years: yearDiff, months: monthDiff, days: dayDiff}); break;
+					case "month": return Temporal.Duration.from({months: yearDiff*12+monthDiff, days: dayDiff}); break;
+					case "week" : 
 						let weekDayCompound = Chronos.divmod (myDayOffset, smaller.daysInWeek);
 						return Temporal.Duration.from({weeks : weekDayCompound[0], days : weekDayCompound[1]}); break;
 					case undefined : case "auto"  :
-					case "days"  : return Temporal.Duration.from({ days: myDayOffset }); break;
-					default: throw JulianCalendar.invalidOption
+					case "day"  : return Temporal.Duration.from({ days: myDayOffset }); break;
+					default: throw new RangeError ("Unknown option for 'largestUnit': " + options.largestUnit);
 				}
 			}
 		}
@@ -639,14 +678,6 @@ class WesternCalendar {
 				day : lday})).days + 1;
 		}
 	}
-	/* Errors
-	*/
-	static missingElement = new TypeError ("missing date element")
-	static ambiguousElement = new TypeError ("ambiguous date elements")
-	static missingOption = new TypeError ("expected option missing")
-	static invalidOption = new RangeError ("unknown option")
-	static outOfRangeDateElement = new RangeError ("date element out of range") // month or era out of specified range for calendar
-	static dateOverflow = new RangeError ("invalid date") // thrown in case of overflow : reject option
 	/* Internal objects 
 	*/
 	static firstSwitchDate = Temporal.PlainDate.from ("1582-10-15")	 // First date of any non-proleptic gregorian calendar
@@ -656,6 +687,8 @@ class WesternCalendar {
 	*/
 	toString() {return this.id}	// necessary for subclasses, in order to get id passed as a parameter
 	toJSON ()  {return this.id}
+	eras = ["e0", "e1", "e2"]
+	monthCodeFrame = /^M0[1-9]$|^M1[0-2]$/	// M01 to M12, may be changed by instantiating
 	fields (theFields) {	// Add era and eraYear if year is in list
 		if (theFields.includes('year')) {
 			theFields.push ('eraYear');
@@ -665,20 +698,24 @@ class WesternCalendar {
 	}
 	mergeFields (fields, additionalFields) {	// monthCode converted to month ; [era, eraYera] shall throw [year] out
 		let returnFields = {...fields }; 	// prepare return value
-		if (additionalFields.monthCode != undefined && additionalFields.month != undefined) throw WesternCalendar.ambiguousElement; // Checked by Temporal objects ?
+		if ((additionalFields.monthCode != undefined) != (additionalFields.month != undefined)) 
+			throw new TypeError ('Only one of month or month code shall be specified :' + additionalFields.month + ' or ' + additionalFields.monthCode);
 		if (additionalFields.monthCode != undefined) delete returnFields.month;
 		if (additionalFields.month != undefined) delete returnFields.monthCode;
-		if ((additionalFields.eraYear != undefined) != (additionalFields.era != undefined)) throw WesternCalendar.missingElement; // Checked by Temporal objects ?
-		if (additionalFields.year != undefined && additionalFields.eraYear != undefined) throw WesternCalendar.ambiguousElement; // Checked by Temporal objects ?
+		if ((additionalFields.eraYear != undefined) != (additionalFields.era != undefined)) 
+			throw new TypeError ('Both or none of "era" and "eraYear" should be specified. era: ' 
+			+ additionalFields.era + ', eraYear: ' + additionalFields.eraYear); // Checked by Temporal objects ?
+		if ((additionalFields.year != undefined) == (additionalFields.eraYear != undefined)) 
+			throw new TypeError ('Only "year" (signed) or "eraYear" (unsigned and together with "era") may be specified. ' 
+			+ additionalFields.year + ' or ' + additionalFields.eraYear) 	// Checked by Temporal objects ?
 		if (additionalFields.year != undefined) { delete returnFields.eraYear; delete returnFields.era };
 		if (additionalFields.eraYear != undefined ) delete returnFields.year;
 		return Object.assign(returnFields, additionalFields)
 	}
-	eras = ["e0", "e1", "e2"]
 	/* Calendar specific objects
 	*/
 	w1Day = 4	// the day number in January that characterises the first week
-	gregorianClockwork = new Chronos ({ // To be used with day counter from ISO 0000-03-01. Decompose into shifted Gregorian calendar years, months, date, and gives weeks
+	gregorianClockwork = new Chronos ({ // To be used with day counter from ISO 0000-03-01. Decompose into shifted Gregorian calendar year, month, day.
 		timeepoch : 1721120, // Julian day of ISO 0000-03-01
 		coeff : [ 
 		  {cyclelength : 146097, ceiling : Infinity, subCycleShift : 0, multiplier : 400, target : "year"}, // 4 centuries
@@ -741,27 +778,25 @@ class WesternCalendar {
 	dateFromFields (askedComponents, options={overflow : 'constrain'}) {
 		var components = { ... askedComponents }, testDate, finalFields; 
 		// check parameter values
-		switch (options.overflow) {
-			case undefined : options.overflow = "constrain"; break;
-			case "constrain" : case "reject" : break;
-			default : throw MilesianCalendar.invalidOption;
-		}
-		if (components.month == undefined) components.month = Number(components.monthCode.match(/\d+/)[0]);
-		if (isNaN(components.month)) throw WesternCalendar.missingElement;
-		// Check that all necessary fields are present and do not contradict each other. user may either submit era and eraYear, or submit year as a relative number, without era
-		if ( !JulianCalendar.checkYearFields (components, this.eras[0]) ) throw WesternCalendar.ambiguousElement; 
-		// Check for valid era in this specific calendar
-		if (components.era != undefined && !this.eras.includes(components.era)) throw WesternCalendar.outOfRangeDateElement;
+		TemporalCheck.checkOverflowOption (options);
+		components.year = TemporalCheck.getYearFromFields (components, this.eras) ;
+		components.month = TemporalCheck.getMonthFromFields (components, this.monthCodeFrame);
 		// check and constrain parameter values with respect to overflow option, against general Julian calendar rule
-		if (components.month < 1) if (options.overflow == "constrain") {components.month = 1; components.day = 1} else throw WesternCalendar.dateOverflow;
-		if (components.month > 12) if (options.overflow == "constrain") {components.month = 12; components.day = 31} else throw WesternCalendar.dateOverflow;
-		if (components.day < 1) if (options.overflow == "constrain") {components.day = 1} else throw WesternCalendar.dateOverflow;
+		if (components.month < 1) if (options.overflow == "constrain") {components.month = 1; components.day = 1} 
+			else throw new RangeError ("Out of range value for Julian calendar month: " + components.month);
+		if (components.month > 12) if (options.overflow == "constrain") {components.month = 12; components.day = 31} 
+			else throw new RangeError ("Out of range value for Julian calendar month: " + components.month);
+		if (components.day < 1) if (options.overflow == "constrain") {components.day = 1} 
+			else throw new RangeError 
+				("Out of range value for day: " + components.day);
 		let upperDay = JulianCalendar.internalDaysInMonth(components.month, Chronos.isJulianLeapYear(components.year));
-		if (components.day > upperDay) if (options.overflow == "constrain") {components.day = upperDay} else throw WesternCalendar.dateOverflow;
+		if (components.day > upperDay) if (options.overflow == "constrain") {components.day = upperDay} 
+			else throw new RangeError 
+				("Out of range value for day: " + components.day + " in Julian month " + components.month + " and year " + components.year);
 		/*	
 		If era is unspecified, first compare the Gregorian presentation to the switching date. 
 		If era specified, the caller knows what he wants, fields are analysed following era indication, even is era is not in line with switching date.
-		If after, confirm "e2". If before, mark "e1"; if "e0", JulianCalendar.checkYearFields has converted .year to negative value.
+		If after, confirm "e2". If before, mark "e1"; if "e0", TemporalCheck.getYearFromFields fixed .year to negative value.
 		After era is determined, date is computed, and a last overflow control is performed. Range error is thrown for any "e2" date before 1582-10-15.
 		*/	
 		if (components.era == undefined) {	// era not user-defined, Gregorian transition date assumed
@@ -769,7 +804,9 @@ class WesternCalendar {
 			testDate = Temporal.PlainDate.from (components); // Try to build a Gregorian date, with "constrain"
 			if (Temporal.PlainDate.compare (testDate, this.switchingDate) >= 0) {// on or after transition date
 				let upperDay = JulianCalendar.internalDaysInMonth(components.month, Chronos.isGregorianLeapYear (components.year) );
-				if (components.day > upperDay) if (options.overflow == "constrain") {components.day = upperDay} else throw WesternCalendar.dateOverflow;
+				if (components.day > upperDay) if (options.overflow == "constrain") {components.day = upperDay} 
+					else throw new RangeError
+						("Out of range value for day: " + components.day + " in month " + components.month + " and year " + components.year);
 				return new Temporal.PlainDate (components.year, components.month, components.day, this)
 			} else { // Date without expressed era is before transition date in Gregorian
 				components.calendar = WesternCalendar.julianCalendar;
@@ -777,8 +814,10 @@ class WesternCalendar {
 				if (Temporal.PlainDate.compare (testDate, this.lastJulianDate.withCalendar(WesternCalendar.julianCalendar)) > 0) { // computed date is above last Julian date
 					if (options.overflow = "constrain") {
 						let myFields = this.lastJulianDate.getISOFields();
-						return new Temporal.PlainDate (myFields.year, myFields.month, myFields.day, this)
-					} else throw WesternCalendar.dateOverflow;
+						return new Temporal.PlainDate (myFields.isoYear, myFields.isoMonth, myFields.isoDay, this)
+					} else throw new RangeError
+						("Expressed date is among skipped days when switching to Gregorian: (Y/M/D) " 
+						+ components.year + "/" + components.month + "/" + components.day);
 				}
 				let myFields = testDate.getISOFields();
 				return new Temporal.PlainDate (myFields.isoYear, myFields.isoMonth, myFields.isoDay, this)
@@ -788,7 +827,9 @@ class WesternCalendar {
 			if (components.era == this.eras[2]) {	// user says "New Style"
 				components.calendar = "iso8601";
 				testDate = Temporal.PlainDate.from (components, options);	// will throw if options says so
-				if (Temporal.PlainDate.compare (testDate, WesternCalendar.firstSwitchDate) < 0) throw WesternCalendar.invalidEra
+				if (Temporal.PlainDate.compare (testDate, WesternCalendar.firstSwitchDate) < 0) 
+					throw new RangeError ("This date cannot be in era " + components.era + " (Y/M/D) " +
+						components.year + "/" + components.month + "/" + components.day)
 				else {
 					let myFields = testDate.getISOFields();
 					return new Temporal.PlainDate (myFields.isoYear, myFields.isoMonth, myFields.isoDay, this)
@@ -804,33 +845,22 @@ class WesternCalendar {
 		}
 	yearMonthFromFields (askedComponents, options={overflow : 'constrain'}) {
 		var components = { ... askedComponents };
-		switch (options.overflow) {
-			case undefined : options.overflow = "constrain"; break;
-			case "constrain" : case "reject" : break;
-			default : throw MilesianCalendar.invalidOption;
-		}
+		TemporalCheck.checkOverflowOption (options);
+		components.year = TemporalCheck.getYearFromFields (components, this.eras); 
+		components.month = TemporalCheck.getMonthFromFields (components, this.monthCodeFrame);
 		components.day = 1;
-		if (components.month == undefined) components.month = Number(components.monthCode.match(/\d+/)[0]);
-		if (isNaN(components.month)) throw WesternCalendar.missingElement;
-		if ( !JulianCalendar.checkYearFields (components, this.eras[0]) ) throw WesternCalendar.ambiguousElement; 
-		if (components.era != undefined && !this.eras.includes(components.era)) throw WesternCalendar.outOfRangeDateElement;
-		let isoFields = toIsoList (this.dateFromFields (components, options).getISOFields());
-		isoFields.push (this, isoFields.pop()); 
-		return new Temporal.PlainYearMonth (...isoFields);
+		let isoArray = TemporalCheck.toIsoArray (this.dateFromFields (components, options).getISOFields());
+		isoArray.push (this, isoArray.pop()); 
+		return new Temporal.PlainYearMonth (...isoArray);
 	}
 	monthDayFromFields (askedComponents, options={overflow : 'constrain'}) {
 		var components = { ... askedComponents }; 
-		switch (options.overflow) {
-			case undefined : options.overflow = "constrain"; break;
-			case "constrain" : case "reject" : break;
-			default : throw MilesianCalendar.invalidOption;
-		}
+		TemporalCheck.checkOverflowOption (options);
 		components.year = 2000;
-		if (components.month == undefined) components.month = Number(components.monthCode.match(/\d+/)[0]);
-		if (isNaN(components.month)) throw WesternCalendar.ambiguousElement;
-		let isoFields = toIsoList (this.dateFromFields (components, options).getISOFields());
-		isoFields.push(this,isoFields.shift());
-		return new Temporal.PlainMonthDay (...isoFields);
+		components.month = TemporalCheck.getMonthFromFields (components, this.monthCodeFrame);
+		let isoArray = TemporalCheck.toIsoArray (this.dateFromFields (components, options).getISOFields());
+		isoArray.push(this,isoArray.shift());
+		return new Temporal.PlainMonthDay (...isoArray);
 	}
 	/* Methods for Temporal date-like properties
 	*/
@@ -910,13 +940,14 @@ class WesternCalendar {
 		let dateOneJD = JDISO.toCounter(dateOne.getISOFields()), 
 			componentsGregoryJD = JDISO.toCounter (Temporal.PlainDate.from (components).getISOFields());
 		if (dateOneJD >= this.switchingJD && componentsGregoryJD < this.switchingJD)		// case where the date computed by adding years and months fall in the blackout dates range
-			switch (options.overflow) {
-				case "reject" : throw WesternCalendar.dateOverflow ;
-				case undefined : case "constrain" : dateOne = Temporal.PlainDate.from(this.lastJulianDate); break;
-				default : throw WesternCalendar.invalidOption;
-			};
+		switch (options.overflow) {
+			case "reject" : throw new RangeError ("Result date is among skipped days when switching to Gregorian: (Y/M/D) " 
+								+ componentsGregoryJD.year + "/" + componentsGregoryJD.month + "/" + componentsGregoryJD.day);
+			case undefined : case "constrain" : dateOne = Temporal.PlainDate.from(this.lastJulianDate); break;
+			default : throw new RangeError ("Unknown option for 'overflow': " + options.overflow);
+		};
 		// Finally add or subtract days to final result
-		let resultFields = toIsoList(JDISO.toIsoFields(JDISO.toCounter(dateOne.getISOFields()) + duration.weeks*this.daysInWeek(date) + duration.days));
+		let resultFields = TemporalCheck.toIsoArray(JDISO.toIsoFields(JDISO.toCounter(dateOne.getISOFields()) + duration.weeks*this.daysInWeek(date) + duration.days));
 		resultFields.push (this);
 		return new Temporal.PlainDate (...resultFields)
 	}
@@ -937,7 +968,7 @@ class WesternCalendar {
 				myLarger.day = larger.day == larger.daysInMonth ? 31 : larger.day;	// For computation, all months finish on 30. Variant: on 31.
 				mySmaller.day = smaller.day == smaller.daysInMonth ? 31 : smaller.day;
 	*/
-				myLarger.day = Math.min (myLarger.day, 30); mySmaller.day = Math.min (mySmaller.day, 30); // end of month is 30 for years-month reckoning
+				myLarger.day = Math.min (myLarger.day, 30); mySmaller.day = Math.min (mySmaller.day, 30); // end of month is 30 for year-month reckoning
 				if (myLarger.day >= mySmaller.day)	// did not suceed in destructuring affectation {dayDiff, withhold} = ...
 					{ dayDiff = myLarger.day - mySmaller.day; withhold = 0 }
 					else { dayDiff = myLarger.day - mySmaller.day + 30; withhold = 1 };
@@ -946,14 +977,14 @@ class WesternCalendar {
 					else { monthDiff = myLarger.month - mySmaller.month - withhold + 12; withhold = 1};
 				yearDiff = myLarger.year - mySmaller.year - withhold;
 				switch (options.largestUnit) {
-					case "years" : return Temporal.Duration.from({years: yearDiff, months: monthDiff, days: dayDiff}); break;
-					case "months": return Temporal.Duration.from({months: yearDiff*12+monthDiff, days: dayDiff}); break;
-					case "weeks" : 
+					case "year" : return Temporal.Duration.from({years: yearDiff, months: monthDiff, days: dayDiff}); break;
+					case "month": return Temporal.Duration.from({months: yearDiff*12+monthDiff, days: dayDiff}); break;
+					case "week" : 
 						let weekDayCompound = Chronos.divmod (myDayOffset, smaller.daysInWeek);
 						return Temporal.Duration.from({weeks : weekDayCompound[0], days : weekDayCompound[1]}); break;
 					case undefined : case "auto" : 
-					case "days"  : return Temporal.Duration.from({ days: myDayOffset }); break;
-					default: throw WesternCalendar.invalidOption
+					case "day"  : return Temporal.Duration.from({ days: myDayOffset }); break;
+					default: throw new RangeError ("Unknown option for 'largestUnit': " + options.largestUnit);
 				}
 			}
 		}
