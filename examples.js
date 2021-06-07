@@ -1,5 +1,6 @@
 /* A selection of calendar for tries with Temporal
-/* Version	M2021-02-09 separate [era,eraYear] and [year]
+/* Version	M2021-06-13 duration options in singular, change rcerv (bug)
+	M2021-02-09 separate [era,eraYear] and [year]
 	M2021-02-03	use year and eraYear
 	M2020-11-23 - adapt to new names in Temporal
 	M2020-11-14 - add a few variables
@@ -47,7 +48,7 @@ var
 	rger3 = { year : 1700, month : 1, day : 28, calendar : german },
 	rger4 = { era : "e0", eraYear : 753, month : 4, day : 21, calendar : german },
 	rshak = { era : "e1", eraYear : 1616, month : 4, day : 23, calendar : english },
-	rcerv = { era : "e2", eraYear : 1616, month : 4, day : 23, calendar : english },
+	rcerv = { era : "e2", eraYear : 1616, month : 4, day : 23, calendar : vatican },
 	rswiss1 = { year : 1700, month : 12, day : 31, calendar  : swiss },
 	rswiss2 = { year : 1701, month : 1, day : 12, calendar  : swiss };
 
@@ -96,11 +97,11 @@ var
 	pCinderella = Temporal.Duration.from("P300Y");
 	
 var
-	lua = { largestUnit : "auto", smallestUnit : "days" },
-	lud = { largestUnit : "days", smallestUnit : "days" },
-	luw = { largestUnit : "weeks", smallestUnit : "days" },
-	lum = { largestUnit : "months", smallestUnit : "days" },
-	luy = { largestUnit : "years", smallestUnit : "days" },
+	lua = { largestUnit : "auto", smallestUnit : "day" },
+	lud = { largestUnit : "day", smallestUnit : "day" },
+	luw = { largestUnit : "week", smallestUnit : "day" },
+	lum = { largestUnit : "month", smallestUnit : "day" },
+	luy = { largestUnit : "year", smallestUnit : "day" },
 	vc = { overflow : "constrain" },
 	vr = { overflow : "reject" },
 	vb = { overflow : "balance" };
