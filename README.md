@@ -3,7 +3,7 @@ Applications using the draft Temporal environment
 
 Some use cases of the draft Temporal environement, in particular Temporal.Calendar.
 
-Temporal polyfill as of 13 November 2020
+Temporal polyfill as of Spring 2021
 
 ## File contents
 The .js files consists in:
