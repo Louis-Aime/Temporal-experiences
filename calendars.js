@@ -1,6 +1,10 @@
 /* A selection of calendar for tries with Temporal
 */
-/* Version	M2021-06-17
+/* Version	M2021-06-19 
+		Delete dead code (error definition)
+		Simpify fieldsFromDate and fullFieldsFromDate computation
+		toDateString as a general Temporal.PlainDate method, works on any calendar
+	M2021-06-17
 		Collect all field checks in a common internal class, with common routines used with Temporal
 		set all options tags in singular e.g. 'day' instead of 'days'
 		fix bad use of isoFields (isoArray) in WesternCalendar
@@ -115,6 +119,26 @@ class TemporalCheck {
 		return m
 	}
 }
+/**	Yield a string with the fields of a date in the specified calendar, not in ISO
+*/
+Temporal.PlainDate.prototype.toDateString = function () { 
+	let ey = this.eraYear,
+		yearParts = ey == undefined ? [this.year] : [ey, this.era];
+	return  "[" + this.calendar.id + "]" 
+		+ this.day + "." + this.monthCode + "."
+		+ new Intl.NumberFormat('en-US', {minimumIntegerDigits : 4, useGrouping : false}).format (yearParts[0])
+		+ (yearParts.length > 1 ? "." + yearParts[1] : "")
+}
+/*
+function toDateString (date) {
+		let y = date.year;	// computed only once
+		let absYear = Math.abs(y);
+		return  "[" + date.calendar.id + "]" 
+			+ date.day + "_" + date.monthCode + "_"
+			+ ((y < 0) ? "-": "") 
+			+ ((absYear < 100) ? "0" : "") + ((absYear < 10) ? "0" : "") + absYear; 
+}
+*/
 const isoWeeks = {	// The week fields with the ISO rules
 	isoWeekClock : new WeekClock ({
 		originWeekday: 1, 	// Julian Day 0 is a Monday
@@ -148,7 +172,7 @@ class MilesianCalendar {
 	mergeFields (fields, additionalFields) {	// additional fields should replace fields if existing
 		let returnFields = {...fields }; 	// prepare return value
 		if ((additionalFields.monthCode != undefined) == (additionalFields.month != undefined)) 
-			throw new TypeError ('Only one of month or month code shall be specified :' + additionalFields.month + ' or ' + additionalFields.monthCode);
+			throw new TypeError ('Only one of month or month code shall be specified: ' + additionalFields.month + ' or ' + additionalFields.monthCode);
 		// MilesianCalendar.ambiguousElement; // Checked by Temporal objects ?
 		if (additionalFields.monthCode != undefined) delete returnFields.month;
 		if (additionalFields.month != undefined) delete returnFields.monthCode;
@@ -194,8 +218,7 @@ class MilesianCalendar {
 		return this.calendarClockwork.getObject(JDISO.toCounter (date.getISOFields()))	// since there is no era
 	}
 	fullFieldsFromDate (date) {	// compute all fields that characterise this date in this calendar, including week fields.
-		var index = JDISO.toCounter (date.getISOFields()),
-			fullFields = this.calendarClockwork.getObject(index);
+		var fullFields = this.fieldsFromDate (date);
 		[fullFields.weekOfYear, fullFields.dayOfWeek, fullFields.weekYearOffset, fullFields.weeksInYear] = this.weekClockWork.getWeekFigures 
 			(index, this.calendarClockwork.getNumber({ year : fullFields.year, month : 1, day : 7 }), fullFields.year);
 		return fullFields;
@@ -355,14 +378,6 @@ class MilesianCalendar {
 			break; // just to close case -1
 		}
 	}
-	toDateString (date) { // non standard display method
-		let fields = this.fullFieldsFromDate(date);
-		let absYear = Math.abs(fields.year);
-		return  "[" + this.id + "] " 
-			+ fields.day + " " + fields.month + "m " 
-			+ ((fields.year < 0) ? "-": "") 
-			+ ((absYear < 100) ? "0" : "") + ((absYear < 10) ? "0" : "") + absYear; 
-		}
 } // end of calendar object/class
 
 class JulianCalendar  {
@@ -380,13 +395,6 @@ class JulianCalendar  {
 	*/
 	eras = ["e0", "e1"]	// basic codes for eras should always be in small letters
 	monthCodeFrame = /^M0[1-9]$|^M1[0-2]$/	// M01 to M12, may be changed by instantiating
-	/* Errors
-	*/
-	static missingElement = new TypeError ("missing date element")
-	static ambiguousElement = new TypeError ("ambiguous date elements")
-	static missingOption = new TypeError ("expected option missing")
-	static invalidOption = new RangeError ("unknown option")
-	static dateOverflow = new RangeError ("invalid date") // thrown in case of overflow : reject option
 	/* Basics for interaction with Temporal objects (this.id is forced in constructor)
 	*/
 	toString () {return this.id}
@@ -459,8 +467,7 @@ class JulianCalendar  {
 		return fields;
 	}
 	fullFieldsFromDate (date) {	// compute all fields that characterise this date in this calendar, including week fields.
-		var index = JDISO.toCounter (date.getISOFields()),
-			fullFields = JulianCalendar.shiftYearStart(this.calendarClockwork.getObject(index),-2,2) ;
+		var fullFields = this.fieldsFromDate (date);
 		[ fullFields.era, fullFields.eraYear ] = fullFields.year < 1 ? [ this.eras[0], 1 - fullFields.year ]: [ this.eras [1], fullFields.year ];
 		[fullFields.weekOfYear, fullFields.dayOfWeek, fullFields.weekYearOffset, fullFields.weeksInYear] = this.weekClockWork.getWeekFigures 
 			(index,  this.calendarClockwork.getNumber(JulianCalendar.shiftYearStart({ year : fullFields.year, month : 1, day : this.w1Day },2,0)), fullFields.year);
@@ -482,7 +489,7 @@ class JulianCalendar  {
 		if (components.month > 12) if (options.overflow == "constrain") {components.month = 12; components.day = 31} 
 			else throw new RangeError ("Out of range value for Julian calendar month: " + components.month);
 		if (components.day < 1) if (options.overflow == "constrain") {components.day = 1} 
-			else throw new RangeError ("Out of range value for day: " + components.day); //JulianCalendar.dateOverflow;
+			else throw new RangeError ("Out of range value for day: " + components.day); 
 		let upperDay = JulianCalendar.internalDaysInMonth(components.month, Chronos.isJulianLeapYear(components.year));
 		if (components.day > upperDay) if (options.overflow == "constrain") {components.day = upperDay} 
 			else throw new RangeError 
@@ -615,11 +622,6 @@ class JulianCalendar  {
 			}
 		}
 	}
-	toDateString (date) { // non standard display method
-		let fields = this.fieldsFromDate (date);
-		return  "[" + this.id + "] " + fields.day + "/" + fields.month + "/" 
-				+ (fields.eraYear) + " " + fields.era;
-		}
 } // end of calendar class
 class WesternCalendar { 
 /**	Class that handle the switching from Julian to Gregorian calendar with the following smoothing conventions:
@@ -988,11 +990,6 @@ class WesternCalendar {
 				}
 			}
 		}
-	}
-	toDateString (date) { // non standard display method
-		let fields = this.fieldsFromDate(date);
-		return "[" + this.id + "] " + fields.day + "/" + fields.month + "/" 
-			+ (fields.eraYear) + " " + fields.era 
 	}
 }// end of calendar class
 
