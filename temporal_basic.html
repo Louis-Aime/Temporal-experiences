@@ -3,13 +3,23 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Miletus TC39 Temporal experiments</title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/kognise/water.css@latest/dist/light.min.css">
+    <title>Miletus TC39 Temporal experiments - basic</title>
+    <link rel="stylesheet" href="https://louis-aime.github.io/calendrical-javascript/dialsandpanels.css">
 <!-- deprecated playground    <script type="application/javascript" src="https://tc39.es/proposal-temporal/docs//playground.js"></script> -->
 	<!-- No inline script nor style -->
 
 <!-- Milesian tries -->
-	<script type="application/javascript" src="initial.js"></script> 
+	<script type="application/javascript">
+	var Temporal, Intl;
+	(async function () {
+		let modules = await import ( './index-polyfill.js'); 
+			// import { Temporal, Intl, toTemporalInstant } from './node_module/@js-temporal/polyfill/lib/index.mjs';
+		Temporal = modules.Temporal;
+		Intl = modules.Intl;
+		Date.prototype.toTemporalInstant = modules.toTemporalInstant;
+	}) (); 
+	
+	</script> 
 <!-- this one is now imported as a module	<script type="application/javascript" src="chronos.js"></script> -->
  <!--	<script type="application/javascript" src="calendars.js"></script> 
 	<script type="application/javascript" src="examples.js"></script> 
@@ -17,9 +27,7 @@
 
   </head>
 <body>
-<h1>TC39 Temporal demonstrator</h1>
-	<p>Calendars: milesian, julian, vatican, french, german, english. 
-	Other predefined objects: see examples.js.</p>
+<h1>TC39 Temporal demonstrator - basic environment</h1>
 <footer>
 	<p>Miletus - Version 2021-07-22 - not for business application</p>
 </footer>
