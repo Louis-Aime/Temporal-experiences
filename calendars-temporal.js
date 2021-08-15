@@ -43,8 +43,8 @@ year and eraYear are 2 possible fields date fields given by the calendar reckoni
 For calendars with eras, the code "e0", "e1" and possibly "e2" are used.
 */
 /* Required: 
-	Chronos.js
-		class Chronos
+	chronos.js
+		class Cbcce
 		class WeekClock
 		class IsoCounter
 	Temporal environment
@@ -71,7 +71,7 @@ or the use or other dealings in the software.
 Inquiries: www.calendriermilesien.org
 */
 "use strict";
-import { Cbcce as Chronos, WeekClock, IsoCounter } from './chronos.js';
+import { Cbcce, WeekClock, IsoCounter } from './chronos.js';
 const JDISO = new IsoCounter (-4713, 11, 24);		// Julian Day to ISO fields and the reverse
 /** Compute ISO8601 date figures from object resulting from getISOFields() or toIsoFields()
  * @param (Object): An object with the fields isoYear, isoMonth and isoDay.
@@ -145,20 +145,20 @@ function toDateString (date) {
 			+ ((absYear < 100) ? "0" : "") + ((absYear < 10) ? "0" : "") + absYear; 
 }
 */
-export const isoWeeks = {	// The week fields with the ISO rules
+export const isoWeeks = {	// The week fields of any date with the ISO rules
 	isoWeekClock : new WeekClock ({
 		originWeekday: 1, 	// Julian Day 0 is a Monday
-		daysInYear: year => Chronos.isGregorianLeapYear(year) ? 366 : 365	// Function that yields the number of days in a given year
+		daysInYear: year => Cbcce.isGregorianLeapYear(year) ? 366 : 365,	// Function that yields the number of days in a given year
+		characDayIndex: year =>  JDISO.toCounter ( { isoYear : year, isoMonth : 1, isoDay : 4 } )
 		// All other fields are defaulted to efficient values for ISO
 	}),
-	fullFieldsFromDate (date) {	// compute all fields that characterise this date in this calendar, including week fields.
-		var // index = JDISO.toCounter (date.getISOFields()),
-			fullFields = date.getISOFields();
-		fullFields.year = fullFields.isoYear; fullFields.month = fullFields.isoMonth; fullFields.day = fullFields.isoDay;
-		fullFields.fullYear = fullFields.year;
-		[fullFields.weekOfYear, fullFields.dayOfWeek, fullFields.weekYearOffset, fullFields.weeksInYear] = this.isoWeekClock.getWeekFigures 
-			(JDISO.toCounter(fullFields), JDISO.toCounter({ isoYear : fullFields.year, isoMonth : 1, isoDay : 4 }), fullFields.year);
-	return fullFields;
+	fieldsFromDate (date) {	// compute fields of the ISO 8601 week calendar
+		let 
+			isoFields = date.getISOFields(),  
+			weekFields = { };
+		[weekFields.weekOfYear, weekFields.dayOfWeek, weekFields.weekYearOffset, weekFields.weeksInYear] 
+			= this.isoWeekClock.getWeekFigures (JDISO.toCounter (isoFields), isoFields.isoYear);
+	return weekFields;
 	}
 }
 
@@ -187,7 +187,7 @@ export class MilesianCalendar {
 	static from (thing) {return Temporal.Calendar.from(thing)}	// This should not be used, but just in case.
 	/* Basic calendar-specific objects 
 	*/
-	calendarClockwork = new Chronos ( { // To be used with day counter from M000-01-01 ie ISO -000001-12-22. Decompose into Milesian year, month, day.
+	calendarClockwork = new Cbcce ( { // To be used with day counter from M000-01-01 ie ISO -000001-12-22. Decompose into Milesian year, month, day.
 		timeepoch : 1721050, // Julian Day at 1 1m 000 i.e. -000001-12-22
 		coeff : [ 
 		  {cyclelength : 146097, ceiling : Infinity, subCycleShift : 0, multiplier : 400, target : "year"},
@@ -206,7 +206,8 @@ export class MilesianCalendar {
 	})	// end of calendRule
 	weekClockWork = new WeekClock ( {	// weekdayRule
 		originWeekday: 4, 		// Use day part of Posix timestamp, week of day of 1970-01-01 is Thursday
-		daysInYear: (year) => (Chronos.isGregorianLeapYear( year + 1 ) ? 366 : 365),		// leap year rule for Milesian calendar
+		daysInYear: (year) => (Cbcce.isGregorianLeapYear( year + 1 ) ? 366 : 365),		// leap year rule for Milesian calendar
+		characDayIndex: year =>  JDISO.toCounter ( this.dateFromFields ({year : year, month : 1, day : 7}).getISOFields() ),
 		startOfWeek : 0,		// week start with 0
 		characWeekNumber : 0,	// we have a week 0 and the characteristic day for this week is 7 1m.
 		dayBase : 0,			// use 0..6 display for weekday
@@ -220,13 +221,13 @@ export class MilesianCalendar {
 						? 31 
 						: isLeap ? 31 : 30 ));
 	}
-	fieldsFromDate (date) {	// compute essential fields for  this calendar, after isoFields of any date. Week fields computed separately, on demand.
+	fieldsFromDate (date) {	// compute essential fields for this calendar, after isoFields of any date. Week fields computed separately, on demand.
 		return this.calendarClockwork.getObject(JDISO.toCounter (date.getISOFields()))	// since there is no era
 	}
 	fullFieldsFromDate (date) {	// compute all fields that characterise this date in this calendar, including week fields.
 		var fullFields = this.fieldsFromDate (date);
-		[fullFields.weekOfYear, fullFields.dayOfWeek, fullFields.weekYearOffset, fullFields.weeksInYear] = this.weekClockWork.getWeekFigures 
-			(index, this.calendarClockwork.getNumber({ year : fullFields.year, month : 1, day : 7 }), fullFields.year);
+		[fullFields.weekOfYear, fullFields.dayOfWeek, fullFields.weekYearOffset, fullFields.weeksInYear] 
+			= this.weekClockWork.getWeekFigures (JDISO.toCounter (date.getISOFields()), fullFields.year);
 		return fullFields;
 	}
 	/* Main date and Temporal objects generator from fields representing a Milesian date. 
@@ -246,14 +247,14 @@ export class MilesianCalendar {
 			else throw new RangeError ("Out of range value for Milesian month: " + components.month);
 		if (components.month > 12) if (options.overflow == "constrain") { 
 				components.month = 12; 
-				components.day = MilesianCalendar.internalDaysInMonth ( 12, Chronos.isGregorianLeapYear(components.year + 1) )
+				components.day = MilesianCalendar.internalDaysInMonth ( 12, Cbcce.isGregorianLeapYear(components.year + 1) )
 			} 
 			else throw new RangeError ("Out of range value for Milesian month: " + components.month);
 		// Now, month is in good range, constrain day
 		if (isNaN(components.day)) throw new TypeError("Wrong type or missing value for day: " + components.day);	// MilesianCalendar.missingElement;
 		if (components.day < 1) if (options.overflow == "constrain") { components.day = 1 } 
 			else throw new RangeError ("Out of range value for day: " + components.day);	// MilesianCalendar.dateOverflow;
-		let upperDay = MilesianCalendar.internalDaysInMonth ( components.month, Chronos.isGregorianLeapYear(components.year + 1) );
+		let upperDay = MilesianCalendar.internalDaysInMonth ( components.month, Cbcce.isGregorianLeapYear(components.year + 1) );
 		if (components.day > upperDay) if (options.overflow == "constrain") { components.day = upperDay } 
 			else throw new RangeError 
 				("Out of range value for day: " + components.day + " in Milesian month " + components.month + " and year " + components.year);
@@ -315,10 +316,10 @@ export class MilesianCalendar {
 	weekOfYear (date) { return this.fullFieldsFromDate(date).weekOfYear } 
 	daysInMonth (date) { 
 		let fields = this.fieldsFromDate(date), m = fields.month - 1;
-		return m % 2 == 0 ? 30 : ( m == 11 && ! Chronos.isGregorianLeapYear (fields.year + 1) ? 30 : 31)
+		return m % 2 == 0 ? 30 : ( m == 11 && ! Cbcce.isGregorianLeapYear (fields.year + 1) ? 30 : 31)
 	}
 	monthsInYear (date) { return 12 }
-	inLeapYear (date) { return Chronos.isGregorianLeapYear (this.fieldsFromDate(date).year + 1) }
+	inLeapYear (date) { return Cbcce.isGregorianLeapYear (this.fieldsFromDate(date).year + 1) }
 	/* Non standard week properties 
 	*/
 	weeksInYear (date) { return this.fullFieldsFromDate(date).weeksInYear }
@@ -336,7 +337,7 @@ export class MilesianCalendar {
 	dateAdd (date, duration, options={overflow : 'constrain'}) {// Add a +/- duration
 		// 1. Build new date components from duration years and months
 		let components = this.fieldsFromDate(date),
-			addedYearMonth = Chronos.divmod ( components.month + duration.months - 1, 12 );
+			addedYearMonth = Cbcce.divmod ( components.month + duration.months - 1, 12 );
 		components.year += (duration.years + addedYearMonth[0]); 
 		components.month = addedYearMonth[1] + 1; 
 		// dateFromFields shall handle overflow option
@@ -375,7 +376,7 @@ export class MilesianCalendar {
 					case "year" : return Temporal.Duration.from({years: yearDiff, months: monthDiff, days: dayDiff}); break;
 					case "month": return Temporal.Duration.from({months: yearDiff*12+monthDiff, days: dayDiff}); break;
 					case "week" : 
-						let weekDayCompound = Chronos.divmod (myDayOffset, smaller.daysInWeek);
+						let weekDayCompound = Cbcce.divmod (myDayOffset, smaller.daysInWeek);
 						return Temporal.Duration.from({weeks : weekDayCompound[0], days : weekDayCompound[1]}); break;
 					case undefined : case "auto"  : 
 					case "day" : return Temporal.Duration.from({ days: myDayOffset }); break;
@@ -430,7 +431,7 @@ export class JulianCalendar  {
 	}
 	/* Basics data and computing options
 	*/
-	calendarClockwork = new Chronos ({ // To be used with day counter from Julian 0000-03-01 ie ISO 0000-02-28. Decompose into Julian year, month, day (note date).
+	calendarClockwork = new Cbcce ({ // To be used with day counter from Julian 0000-03-01 ie ISO 0000-02-28. Decompose into Julian year, month, day (note date).
 		timeepoch : 1721118, // Julian day of 1 martius 0 i.e. 0000-02-28
 		coeff : [ 
 		  {cyclelength : 1461, ceiling : Infinity, subCycleShift : 0, multiplier : 4, target : "year"}, // 4 Julian years
@@ -448,16 +449,17 @@ export class JulianCalendar  {
 		}) // end of calendRule
 	weekClockWork = new WeekClock ( {	// weekdayRule
 		originWeekday: 1, 		// weekday of Julian Day 0 is Monday
-		daysInYear: (year) => (Chronos.isJulianLeapYear( year ) ? 366 : 365),		// leap year rule for this calendar
+		daysInYear: (year) => (Cbcce.isJulianLeapYear( year ) ? 366 : 365),		// leap year rule for this calendar
+		characDayIndex: year =>  JDISO.toCounter ( this.dateFromFields ({year : year, month : 1, day : this.w1Day}).getISOFields() ),
 		startOfWeek : this.startOfWeek,		// week starts with 0 (Sunday) or 1 (Monday) or any other day as specified
 		characWeekNumber : 1,	// we have a week 1 and the characteristic day for this week is (w1Day) January. Little change with respect to ISO.
 		dayBase : 1,			// use 1..7 display for weekday
 		weekBase : 1,			// number of week begins with 1
 		weekLength : 7			
-	}) // end of weekClock
+	}) // end of WeekClock
 	static shiftYearStart (dateFields, shift, base) { // Shift start of year to March, or back to January, for calendrical calculations
 		let shiftedFields = {...dateFields};
-		[ shiftedFields.year, shiftedFields.month ] = Chronos.shiftCycle (dateFields.year, dateFields.month, 12, shift, base + 1);
+		[ shiftedFields.year, shiftedFields.month ] = Cbcce.shiftCycle (dateFields.year, dateFields.month, 12, shift, base + 1);
 		return shiftedFields
 	}
 	static internalDaysInMonth (month, isLeap) { // May be used for Julian or Gregorian calendar, you just tell whether year is leap year or not.
@@ -475,8 +477,8 @@ export class JulianCalendar  {
 	fullFieldsFromDate (date) {	// compute all fields that characterise this date in this calendar, including week fields.
 		var fullFields = this.fieldsFromDate (date);
 		[ fullFields.era, fullFields.eraYear ] = fullFields.year < 1 ? [ this.eras[0], 1 - fullFields.year ]: [ this.eras [1], fullFields.year ];
-		[fullFields.weekOfYear, fullFields.dayOfWeek, fullFields.weekYearOffset, fullFields.weeksInYear] = this.weekClockWork.getWeekFigures 
-			(index,  this.calendarClockwork.getNumber(JulianCalendar.shiftYearStart({ year : fullFields.year, month : 1, day : this.w1Day },2,0)), fullFields.year);
+		[fullFields.weekOfYear, fullFields.dayOfWeek, fullFields.weekYearOffset, fullFields.weeksInYear] 
+			= this.weekClockWork.getWeekFigures (JDISO.toCounter (date.getISOFields()), fullFields.year);
 		return fullFields;
 	}
 	/* Main date and Temporal objects generator from fields representing a Julian date. 
@@ -496,7 +498,7 @@ export class JulianCalendar  {
 			else throw new RangeError ("Out of range value for Julian calendar month: " + components.month);
 		if (components.day < 1) if (options.overflow == "constrain") {components.day = 1} 
 			else throw new RangeError ("Out of range value for day: " + components.day); 
-		let upperDay = JulianCalendar.internalDaysInMonth(components.month, Chronos.isJulianLeapYear(components.year));
+		let upperDay = JulianCalendar.internalDaysInMonth(components.month, Cbcce.isJulianLeapYear(components.year));
 		if (components.day > upperDay) if (options.overflow == "constrain") {components.day = upperDay} 
 			else throw new RangeError 
 				("Out of range value for day: " + components.day + " in Julian month " + components.month + " and year " + components.year);
@@ -555,11 +557,11 @@ export class JulianCalendar  {
 	daysInWeek (date) { return 7 }
 	daysInMonth (date) {
 		let fields = this.fieldsFromDate(date);
-		return JulianCalendar.internalDaysInMonth (fields.month, Chronos.isJulianLeapYear(fields.year))
+		return JulianCalendar.internalDaysInMonth (fields.month, Cbcce.isJulianLeapYear(fields.year))
 	}
 	daysInYear (date){ return (this.inLeapYear(date) ? 366 : 365) }
 	monthsInYear (date) { return 12 }
-	inLeapYear (date) { return Chronos.isJulianLeapYear ( this.fieldsFromDate(date).year ) }
+	inLeapYear (date) { return Cbcce.isJulianLeapYear ( this.fieldsFromDate(date).year ) }
 	/* Non standard week properties 
 	*/
 	weeksInYear (date) { // This function is not yet foreseen in Temporal. How many weeks in this (week) year ? 52 or 53 ?
@@ -579,7 +581,7 @@ export class JulianCalendar  {
 	dateAdd (date, duration, options={overflow : 'constrain'}) {// Add a +/- duration
 		// 1. Build new date components from duration years and months
 		let components = this.fieldsFromDate(date); // here year is the algebraic version
-		let addedYearMonth = Chronos.divmod ( components.month + duration.months - 1, 12 );
+		let addedYearMonth = Cbcce.divmod ( components.month + duration.months - 1, 12 );
 		components.year += (duration.years + addedYearMonth[0]); 
 		components.month = addedYearMonth[1] + 1; 
 		delete components.era; delete components.eraYear;  // prepare to dateFromFields
@@ -619,7 +621,7 @@ export class JulianCalendar  {
 					case "year" : return Temporal.Duration.from({years: yearDiff, months: monthDiff, days: dayDiff}); break;
 					case "month": return Temporal.Duration.from({months: yearDiff*12+monthDiff, days: dayDiff}); break;
 					case "week" : 
-						let weekDayCompound = Chronos.divmod (myDayOffset, smaller.daysInWeek);
+						let weekDayCompound = Cbcce.divmod (myDayOffset, smaller.daysInWeek);
 						return Temporal.Duration.from({weeks : weekDayCompound[0], days : weekDayCompound[1]}); break;
 					case undefined : case "auto"  :
 					case "day"  : return Temporal.Duration.from({ days: myDayOffset }); break;
@@ -723,8 +725,8 @@ export class WesternCalendar {
 	}
 	/* Calendar specific objects
 	*/
-	w1Day = 4	// the day number in January that characterises the first week
-	gregorianClockwork = new Chronos ({ // To be used with day counter from ISO 0000-03-01. Decompose into shifted Gregorian calendar year, month, day.
+	// w1Day = 4	// the day number in January that characterises the first week - not used in WesternCalendar, should be given at instantiation.
+	gregorianClockwork = new Cbcce ({ // To be used with day counter from ISO 0000-03-01. Decompose into shifted Gregorian calendar year, month, day.
 		timeepoch : 1721120, // Julian day of ISO 0000-03-01
 		coeff : [ 
 		  {cyclelength : 146097, ceiling : Infinity, subCycleShift : 0, multiplier : 400, target : "year"}, // 4 centuries
@@ -742,18 +744,21 @@ export class WesternCalendar {
 			{name : "day", init : 1}
 		]
 		}) // end of calendRule
+/*	A possible (but not tested) variant to week figures handling
 	weekClockWork = new WeekClock ( {	// weekdayRule
 		originWeekday: 1, 		// weekday of Julian Day 0 is Monday
 		daysInYear: (year) => {	// this function differs from daysInYear designed hereunder, since here we aim at week computation only
-			if (year >= this.switchingDate.year) return (Chronos.isGregorianLeapYear( year ) ? 366 : 365)
-			else return (Chronos.isJullianLeapYear( year ) ? 366 : 365)
+			if (year >= this.switchingDate.year) return (Cbcce.isGregorianLeapYear( year ) ? 366 : 365)
+			else return (Cbcce.isJullianLeapYear( year ) ? 366 : 365)
 			},
+		characDayIndex: year =>  JDISO.toCounter ( this.dateFromFields ({year : year, month : 1, day : w1Day}).getISOFields() ),
 		startOfWeek : 1,		// week start with 1 (Monday)
-		characWeekNumber : 1,	// we have a week 1 and the characteristic day for this week is 4 January.
+		characWeekNumber : 1,	// we have a week 1 and the characteristic day for this week is w1Day January.
 		dayBase : 1,			// use 1..7 display for weekday
 		weekBase : 1,			// number of week begins with 1
 		weekLength : 7			
 	} )
+*/
 	/* 	Calendar fields generator from any date 
 	*/
 	fieldsFromDate (date) {	// compute essential fields for  this calendar, after isoFields of any date. Week fields computed separately, on demand.
@@ -770,16 +775,18 @@ export class WesternCalendar {
 		return fields;
 	}
 	fullFieldsFromDate (date) {	// compute all fields that characterise this date in this calendar, including week fields.
-		var index = JDISO.toCounter (date.getISOFields()),
+		var 
 			fullFields = this.fieldsFromDate (date);
-		if (index >= this.switchingJD)	// Own computation of full figures, because week has a small problem, and maybe new fields will appear next.
-			[fullFields.weekOfYear, fullFields.dayOfWeek, fullFields.weekYearOffset, fullFields.weeksInYear] = this.weekClockWork.getWeekFigures 
-				(index, this.gregorianClockwork.getNumber(JulianCalendar.shiftYearStart({ year : fullFields.year, month : 1, day : this.w1Day },2,0)), fullFields.year)
+		if (JDISO.toCounter (date.getISOFields()) >= this.switchingJD)	{
+			let isoWeekFields = isoWeeks.fieldsFromDate (date);
+			[fullFields.weekOfYear, fullFields.dayOfWeek, fullFields.weekYearOffset, fullFields.weeksInYear] = 
+				[isoWeekFields.weekOfYear,  isoWeekFields.dayOfWeek, isoWeekFields.weekYearOffset, isoWeekFields.weeksInYear]
+			}
 		else {
 			let julianFields = WesternCalendar.julianCalendar.fullFieldsFromDate(date);
 			[fullFields.weekOfYear, fullFields.dayOfWeek, fullFields.weekYearOffset, fullFields.weeksInYear] = 
 				[julianFields.weekOfYear, julianFields.dayOfWeek, julianFields.weekYearOffset, julianFields.weeksInYear]
-		}
+		};
 		return fullFields;
 	}
 	/* Date and Temporal objects generator from fields representing a date in the western historic calendar
@@ -798,7 +805,7 @@ export class WesternCalendar {
 		if (components.day < 1) if (options.overflow == "constrain") {components.day = 1} 
 			else throw new RangeError 
 				("Out of range value for day: " + components.day);
-		let upperDay = JulianCalendar.internalDaysInMonth(components.month, Chronos.isJulianLeapYear(components.year));
+		let upperDay = JulianCalendar.internalDaysInMonth(components.month, Cbcce.isJulianLeapYear(components.year));
 		if (components.day > upperDay) if (options.overflow == "constrain") {components.day = upperDay} 
 			else throw new RangeError 
 				("Out of range value for day: " + components.day + " in Julian month " + components.month + " and year " + components.year);
@@ -812,7 +819,7 @@ export class WesternCalendar {
 			components.calendar = "iso8601";
 			testDate = Temporal.PlainDate.from (components); // Try to build a Gregorian date, with "constrain"
 			if (Temporal.PlainDate.compare (testDate, this.switchingDate) >= 0) {// on or after transition date
-				let upperDay = JulianCalendar.internalDaysInMonth(components.month, Chronos.isGregorianLeapYear (components.year) );
+				let upperDay = JulianCalendar.internalDaysInMonth(components.month, Cbcce.isGregorianLeapYear (components.year) );
 				if (components.day > upperDay) if (options.overflow == "constrain") {components.day = upperDay} 
 					else throw new RangeError
 						("Out of range value for day: " + components.day + " in month " + components.month + " and year " + components.year);
@@ -900,7 +907,7 @@ export class WesternCalendar {
 		if ( this.specialYear.length == 2 &&  (im == 1) != ( iy == 1 ) )  im = -1;	// Case year changes during switching period
 		if (im >= 0) { return this.specialMonthDays[im] }
 		else if (fields.era == this.eras[2]) { return date.withCalendar("gregory").daysInMonth }
-			else return JulianCalendar.internalDaysInMonth (fields.month, Chronos.isJulianLeapYear(fields.year))
+			else return JulianCalendar.internalDaysInMonth (fields.month, Cbcce.isJulianLeapYear(fields.year))
 	}
 	daysInYear (date) { 
 		let fields = this.fieldsFromDate(date);
@@ -908,16 +915,16 @@ export class WesternCalendar {
 		if ( iy >=0 ) { return this.specialYearDays[iy] }
 		else switch (fields.era) {
 			case this.eras[0] : 
-			case this.eras[1] : return Chronos.isJulianLeapYear(fields.year) ? 366 : 365;  
-			case this.eras[2] : return Chronos.isGregorianLeapYear(fields.year) ? 366 : 365;
+			case this.eras[1] : return Cbcce.isJulianLeapYear(fields.year) ? 366 : 365;  
+			case this.eras[2] : return Cbcce.isGregorianLeapYear(fields.year) ? 366 : 365;
 		}
 	}
 	monthsInYear (date) { return 12 }
 	inLeapYear (date) { // a same year, like 1700 for a switching date that year, may be leap at the begining, then common.
 		switch (date.era) {
 			case this.eras[0] : 
-			case this.eras[1] : return Chronos.isJulianLeapYear(date.year); 
-			case this.eras[2] : return Chronos.isGregorianLeapYear(date.year);
+			case this.eras[1] : return Cbcce.isJulianLeapYear(date.year); 
+			case this.eras[2] : return Cbcce.isGregorianLeapYear(date.year);
 		}
 	}
 	/* Non standard week properties 
@@ -938,7 +945,7 @@ export class WesternCalendar {
 	*/
 	dateAdd (date, duration, options={overflow : 'constrain'}) {// Add a +/- duration
 		let components = this.fieldsFromDate(date), 
-			addedYearMonth = Chronos.divmod ( components.month + duration.months - 1, 12 );
+			addedYearMonth = Cbcce.divmod ( components.month + duration.months - 1, 12 );
 		components.year += (duration.years + addedYearMonth[0]); 
 		components.month = addedYearMonth[1] + 1; 
 		delete components.era; delete components.eraYear;
@@ -989,7 +996,7 @@ export class WesternCalendar {
 					case "year" : return Temporal.Duration.from({years: yearDiff, months: monthDiff, days: dayDiff}); break;
 					case "month": return Temporal.Duration.from({months: yearDiff*12+monthDiff, days: dayDiff}); break;
 					case "week" : 
-						let weekDayCompound = Chronos.divmod (myDayOffset, smaller.daysInWeek);
+						let weekDayCompound = Cbcce.divmod (myDayOffset, smaller.daysInWeek);
 						return Temporal.Duration.from({weeks : weekDayCompound[0], days : weekDayCompound[1]}); break;
 					case undefined : case "auto" : 
 					case "day"  : return Temporal.Duration.from({ days: myDayOffset }); break;
