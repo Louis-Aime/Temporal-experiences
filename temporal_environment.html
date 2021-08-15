@@ -3,23 +3,45 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Miletus TC39 Temporal experiments</title>
+    <title>Louis-Aimé's TC39 Temporal experiments</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/kognise/water.css@latest/dist/light.min.css">
     <script type="application/javascript" src="https://tc39.es/proposal-temporal/docs//playground.js"></script>
 	<!-- No inline script nor style -->
 
-<!-- Milesian tries -->
-	<script type="application/javascript" src="chronos.js"></script>
- 	<script type="application/javascript" src="calendars.js"></script> 
+<!-- launcher -->
+	<script type="application/javascript">
+const 
+	calendrical = {},	// prefix for the calendrical modules, that may be accessed from the global object.
+	myCalendars = {},	// prefix for the custom calendars.
+	loadCalendrical = Promise.all([
+		import ('./calendrical-javascript/fetchdom.js').then (
+			(value) => value.default ('https://louis-aime.github.io/calendrical-javascript/pldr.xml', 1000),
+			(error) => { throw 'Error loading standard modules' }		// failure fetching pldr as XML file, fallback in next step
+			).then (
+				(value) => { calendrical.pldrDOM = value },			// fetching XML file has succeeded.
+				(error) => {							// fetching XML has failed, we use the fallback value
+					console.log ('Error fetching xml pldr file: ' + error + '\nfetching local pldr.js');
+					return import ("./pldr.js").then ( (value) => calendrical.pldrDOM = value.default () ) 
+					}
+				),
+		// import ('./time-units.js').then ( (value) => calendrical.TimeUnits = value.default ),
+		// import ('./extdate.js').then ( (value) => calendrical.ExtDate = value.default ),
+		// import ('./extdatetimeformat.js').then ( (value) => calendrical.ExtDateTimeFormat = value.default ),
+		import ('./calendars-temporal.js').then ( (value) => Object.assign (myCalendars, value) )
+		]);
+	</script> 
+
+<!-- examples -->
 	<script type="application/javascript" src="examples.js"></script> 
 
   </head>
 <body>
 <h1>TC39 Temporal demonstrator</h1>
-	<p>Calendars: milesian, julian, vatican, french, german, english. 
+	<p>Use console.<br>
+	Calendars: milesian, julian, vatican, french, german, english. 
 	Other predefined objects: see examples.js.</p>
 <footer>
-	<p>Miletus - Version 2021-06-09 - not for business application</p>
+	<p>Miletus - Version 2021-08-25 - not for business application</p>
 </footer>
 </body>
 </html>

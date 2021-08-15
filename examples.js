@@ -1,12 +1,13 @@
 /* A selection of calendar for tries with Temporal
-/* Version	M2021-06-13 duration options in singular, change rcerv (bug)
+/* Version	M2021-08-25 set as a module
+	M2021-06-13 duration options in singular, change rcerv (bug)
 	M2021-02-09 separate [era,eraYear] and [year]
 	M2021-02-03	use year and eraYear
 	M2020-11-23 - adapt to new names in Temporal
 	M2020-11-14 - add a few variables
 	M2020-11-13	eras in lowercase
 */
-/* uses: Chronos, MilesianCalendar, JulianCalendar, WesternCalendar
+/* uses: Temporal, MilesianCalendar, JulianCalendar, WesternCalendar
 */
 /* Copyright Miletus 2020 - Louis A. de FOUQUIERES
 Permission is hereby granted, free of charge, to any person obtaining
@@ -29,8 +30,53 @@ tort or otherwise, arising from, out of or in connection with the software
 or the use or other dealings in the software.
 Inquiries: www.calendriermilesien.org
 */
+// No 'use strict';, declared variables are global variables.
+
+Temporal.PlainDate.prototype.toDateString = function () { 
+	let ey = this.eraYear,
+		yearParts = ey == undefined ? [this.year] : [ey, this.era];
+	return  "[" + this.calendar.id + "]" 
+		+ this.day + "." + this.monthCode + "."
+		+ new Intl.NumberFormat('en-US', {minimumIntegerDigits : 4, useGrouping : false}).format (yearParts[0])
+		+ (yearParts.length > 1 ? "." + yearParts[1] : "")
+}
+
+var 
+	pd1 = Temporal.Duration.from ("P1D"),
+	pd3 = Temporal.Duration.from ("P3D"),
+	pd30 = Temporal.Duration.from ("P30D"),
+	pd40 = Temporal.Duration.from ("P40D"),
+	phd1 = Temporal.Duration.from("P1DT720H"),
+	pm1 = Temporal.Duration.from ("P1M"),
+	pm11 = Temporal.Duration.from ("P11M"),
+	pm13 = Temporal.Duration.from ("P13M"),
+	py1 = Temporal.Duration.from ("P1Y"),
+	py4 = Temporal.Duration.from ("P4Y"),
+	pnm1 = Temporal.Duration.from ("-P1M"),
+	pnm13 = Temporal.Duration.from ("-P13M"),
+	py20 = Temporal.Duration.from ("P20Y"),
+	pCinderella = Temporal.Duration.from("P300Y");
 
 var
+	lua = { largestUnit : "auto", smallestUnit : "day" },
+	lud = { largestUnit : "day", smallestUnit : "day" },
+	luw = { largestUnit : "week", smallestUnit : "day" },
+	lum = { largestUnit : "month", smallestUnit : "day" },
+	luy = { largestUnit : "year", smallestUnit : "day" },
+	vc = { overflow : "constrain" },
+	vr = { overflow : "reject" },
+	vb = { overflow : "balance" };
+
+loadCalendrical.then ( () => {	
+	
+	milesian = new myCalendars.MilesianCalendar ("milesian"),
+	julian = new myCalendars.JulianCalendar ("julian"),
+	vatican = new myCalendars.WesternCalendar ("vatican","1582-10-15"),
+	french = new myCalendars.WesternCalendar ("french","1582-12-20"),
+	german = new myCalendars.WesternCalendar ("german","1700-03-01"),
+	english = new myCalendars.WesternCalendar("english","1752-09-14"),
+	swiss = new myCalendars.WesternCalendar("swiss","1701-01-12"),
+
 	rm1 = { year : 201, month : 1, day : 15 },
 	rm2 = { year : 325, month : 3, day : 21},
 	rm3 = { year : 325, month : 3, day : 30, calendar : milesian},
@@ -50,9 +96,8 @@ var
 	rshak = { era : "e1", eraYear : 1616, month : 4, day : 23, calendar : english },
 	rcerv = { era : "e2", eraYear : 1616, month : 4, day : 23, calendar : vatican },
 	rswiss1 = { year : 1700, month : 12, day : 31, calendar  : swiss },
-	rswiss2 = { year : 1701, month : 1, day : 12, calendar  : swiss };
-
-var	
+	rswiss2 = { year : 1701, month : 1, day : 12, calendar  : swiss },
+	
 	mdmlast = Temporal.PlainMonthDay.from ({month : 12, day : 31, calendar : milesian}),
 	mdmun = Temporal.PlainMonthDay.from ({month : 1, day : 12, calendar : milesian}),
 	mdmbis = Temporal.PlainMonthDay.from ({month : 3, day : 9, calendar : milesian}),
@@ -79,29 +124,5 @@ var
 	dcerv = Temporal.PlainDate.from(rcerv),
 	dswiss1 = Temporal.PlainDate.from(rswiss1),
 	dswiss2 = Temporal.PlainDate.from(rswiss2);
-	
-var 
-	pd1 = Temporal.Duration.from ("P1D"),
-	pd3 = Temporal.Duration.from ("P3D"),
-	pd30 = Temporal.Duration.from ("P30D"),
-	pd40 = Temporal.Duration.from ("P40D"),
-	phd1 = Temporal.Duration.from("P1DT720H"),
-	pm1 = Temporal.Duration.from ("P1M"),
-	pm11 = Temporal.Duration.from ("P11M"),
-	pm13 = Temporal.Duration.from ("P13M"),
-	py1 = Temporal.Duration.from ("P1Y"),
-	py4 = Temporal.Duration.from ("P4Y"),
-	pnm1 = Temporal.Duration.from ("-P1M"),
-	pnm13 = Temporal.Duration.from ("-P13M"),
-	py20 = Temporal.Duration.from ("P20Y"),
-	pCinderella = Temporal.Duration.from("P300Y");
-	
-var
-	lua = { largestUnit : "auto", smallestUnit : "day" },
-	lud = { largestUnit : "day", smallestUnit : "day" },
-	luw = { largestUnit : "week", smallestUnit : "day" },
-	lum = { largestUnit : "month", smallestUnit : "day" },
-	luy = { largestUnit : "year", smallestUnit : "day" },
-	vc = { overflow : "constrain" },
-	vr = { overflow : "reject" },
-	vb = { overflow : "balance" };
+
+})
