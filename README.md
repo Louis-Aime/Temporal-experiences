@@ -15,6 +15,7 @@ No calendar is defined as an extension of Temporal.Calendar
   * MilesianCalendar: a class defining the Milesian calendar computations (id="milesian").
   * JulianCalendar: a class for the Julian Calendar computations (id="julian").
   * WesternCalendar: a framework class for calendars of Europe: a step with the Julian calendar, then a switch to the Gregorian calendar.
+* examples: initialisation + a set of calendars, date fields objects, dates, duration, to facilitate tests.
   * milesian: an instance of MilesianCalendar.
   * julian: an instance of JulianCalendar.
   * vatican (id="vatican"): the calendar of the catholic church, that switched to Gregorian on 1582-10-15.
@@ -22,7 +23,6 @@ No calendar is defined as an extension of Temporal.Calendar
   * german (id="german"): the calendar of most protestant german state, that swtiched on 1700-03-01. Test whether this year was a leap year or not...
   * english (id="english"): the calendar of England, that switched on 1752-09-14.
   * swiss (id="swiss"): the calendar of Switzerland, that switched on 1701-01-12; the day before was 31 Dec. 1700 (julian).
-* examples: a set of date fields, dates, duration, to facilitate tests.
 
 The HTML files collects the TC39 Temporal environment.
 
