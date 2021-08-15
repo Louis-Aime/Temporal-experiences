@@ -1,6 +1,9 @@
-/* A selection of calendar for tries with Temporal
+/* A selection of calendars for tries with Temporal
 */
-/* Version	M2021-06-19 
+/* Version	M2021-08-25
+		Set as module
+		Refer to chronos as a module, use Cbcce
+	M2021-06-19 
 		Delete dead code (error definition)
 		Simpify fieldsFromDate and fullFieldsFromDate computation
 		toDateString as a general Temporal.PlainDate method, works on any calendar
@@ -68,6 +71,7 @@ or the use or other dealings in the software.
 Inquiries: www.calendriermilesien.org
 */
 "use strict";
+import { Cbcce as Chronos, WeekClock, IsoCounter } from './chronos.js';
 const JDISO = new IsoCounter (-4713, 11, 24);		// Julian Day to ISO fields and the reverse
 /** Compute ISO8601 date figures from object resulting from getISOFields() or toIsoFields()
  * @param (Object): An object with the fields isoYear, isoMonth and isoDay.
@@ -121,7 +125,8 @@ class TemporalCheck {
 }
 /**	Yield a string with the fields of a date in the specified calendar, not in ISO
 */
-Temporal.PlainDate.prototype.toDateString = function () { 
+/* This cannot be exported this way
+export Temporal.PlainDate.prototype.toDateString = function () { 
 	let ey = this.eraYear,
 		yearParts = ey == undefined ? [this.year] : [ey, this.era];
 	return  "[" + this.calendar.id + "]" 
@@ -129,7 +134,8 @@ Temporal.PlainDate.prototype.toDateString = function () {
 		+ new Intl.NumberFormat('en-US', {minimumIntegerDigits : 4, useGrouping : false}).format (yearParts[0])
 		+ (yearParts.length > 1 ? "." + yearParts[1] : "")
 }
-/*
+*/ 
+/* function toDateString deprecated - because defined as a method to Temporl.PlainDate.
 function toDateString (date) {
 		let y = date.year;	// computed only once
 		let absYear = Math.abs(y);
@@ -139,7 +145,7 @@ function toDateString (date) {
 			+ ((absYear < 100) ? "0" : "") + ((absYear < 10) ? "0" : "") + absYear; 
 }
 */
-const isoWeeks = {	// The week fields with the ISO rules
+export const isoWeeks = {	// The week fields with the ISO rules
 	isoWeekClock : new WeekClock ({
 		originWeekday: 1, 	// Julian Day 0 is a Monday
 		daysInYear: year => Chronos.isGregorianLeapYear(year) ? 366 : 365	// Function that yields the number of days in a given year
@@ -156,7 +162,7 @@ const isoWeeks = {	// The week fields with the ISO rules
 	}
 }
 
-class MilesianCalendar {
+export class MilesianCalendar {
 /** Constructor for the Milesian calendar
  * @param (string) id : the name when displaying an ISO string
 */
@@ -380,7 +386,7 @@ class MilesianCalendar {
 	}
 } // end of calendar object/class
 
-class JulianCalendar  {
+export class JulianCalendar  {
 /**	Constructor fo julian calendar variants
  * @param (string) id : the calendar name
  * @param (number) startOfWeek : week begins on Sunday (0) or on Monday (1) or any other day (0 to 6).
@@ -623,7 +629,8 @@ class JulianCalendar  {
 		}
 	}
 } // end of calendar class
-class WesternCalendar { 
+
+export class WesternCalendar { 
 /**	Class that handle the switching from Julian to Gregorian calendar with the following smoothing conventions:
  * The day of switching is the first day of a new era.
  * The year and month where the switching takes place remain the same, with, by exception, a lesser number of days; daysInMonth, daysInYear and dayOfYear are specially computed.
@@ -992,13 +999,3 @@ class WesternCalendar {
 		}
 	}
 }// end of calendar class
-
-const
-	milesian = new MilesianCalendar ("milesian"),
-	julian = new JulianCalendar ("julian"),
-	vatican = new WesternCalendar ("vatican","1582-10-15"),
-	french = new WesternCalendar ("french","1582-12-20"),
-	german = new WesternCalendar ("german","1700-03-01"),
-	english = new WesternCalendar("english","1752-09-14"),
-	swiss = new WesternCalendar("swiss","1701-01-12");
-
