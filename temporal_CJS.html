@@ -3,18 +3,17 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Miletus TC39 Temporal experiments - basic</title>
+    <title>Miletus TC39 Temporal experiments - CJS</title>
     <link rel="stylesheet" href="https://louis-aime.github.io/calendrical-javascript/dialsandpanels.css">
 <!-- deprecated playground    <script type="application/javascript" src="https://tc39.es/proposal-temporal/docs//playground.js"></script> -->
+	<!-- No inline script nor style -->
 
-<!--inline module -->
-<script type="module">
-import { Temporal, Intl, toTemporalInstant } from './node_modules/@js-temporal/polyfill/lib/index.mjs';
-Date.prototype.toTemporalInstant = toTemporalInstant;
-</script>
-
-
-<!-- Try as embedded 
+	<script type="module">
+		// CJS version
+		const { Temporal, Intl, toTemporalInstant } = require('./node_module/@js-temporal/polyfill');
+		Date.prototype.toTemporalInstant = toTemporalInstant;
+	</script>
+<!-- Milesian tries 
 	<script type="application/javascript">
 	var Temporal, Intl;
 	(async function () {
@@ -34,9 +33,9 @@ Date.prototype.toTemporalInstant = toTemporalInstant;
 
   </head>
 <body>
-<h1>TC39 Temporal demonstrator - basic environment</h1>
+<h1>TC39 Temporal demonstrator - CJS</h1>
 <footer>
-	<p>Miletus - Version 2021-07-22 - not for business application</p>
+	<p>Miletus - Version 2021-08 - not for business application</p>
 </footer>
 </body>
 </html>

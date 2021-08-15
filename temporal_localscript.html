@@ -7,12 +7,9 @@
     <link rel="stylesheet" href="https://louis-aime.github.io/calendrical-javascript/dialsandpanels.css">
 <!-- deprecated playground    <script type="application/javascript" src="https://tc39.es/proposal-temporal/docs//playground.js"></script> -->
 
-<!--inline module -->
-<script type="module">
-import { Temporal, Intl, toTemporalInstant } from './node_modules/@js-temporal/polyfill/lib/index.mjs';
-Date.prototype.toTemporalInstant = toTemporalInstant;
-</script>
+<script type="module" src="./localtemporal.mjs"></script>
 
+<!--inline module: none -->
 
 <!-- Try as embedded 
 	<script type="application/javascript">
