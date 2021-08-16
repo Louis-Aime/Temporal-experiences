@@ -135,7 +135,7 @@ export Temporal.PlainDate.prototype.toDateString = function () {
 		+ (yearParts.length > 1 ? "." + yearParts[1] : "")
 }
 */ 
-/* function toDateString deprecated - because defined as a method to Temporl.PlainDate.
+/* function toDateString deprecated - because user-defined as a method to Temporal.PlainDate.prototype
 function toDateString (date) {
 		let y = date.year;	// computed only once
 		let absYear = Math.abs(y);

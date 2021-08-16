@@ -1,5 +1,6 @@
 /* A selection of calendar for tries with Temporal
-/* Version	M2021-08-25 set as a module
+/* Version	M2021-08-26 separate additions to Temporal
+	M2021-08-25 set as a module
 	M2021-06-13 duration options in singular, change rcerv (bug)
 	M2021-02-09 separate [era,eraYear] and [year]
 	M2021-02-03	use year and eraYear
@@ -31,15 +32,6 @@ or the use or other dealings in the software.
 Inquiries: www.calendriermilesien.org
 */
 // No 'use strict';, declared variables are global variables.
-
-Temporal.PlainDate.prototype.toDateString = function () { 
-	let ey = this.eraYear,
-		yearParts = ey == undefined ? [this.year] : [ey, this.era];
-	return  "[" + this.calendar.id + "]" 
-		+ this.day + "." + this.monthCode + "."
-		+ new Intl.NumberFormat('en-US', {minimumIntegerDigits : 4, useGrouping : false}).format (yearParts[0])
-		+ (yearParts.length > 1 ? "." + yearParts[1] : "")
-}
 
 var 
 	pd1 = Temporal.Duration.from ("P1D"),
