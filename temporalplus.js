@@ -1,7 +1,14 @@
-/* Additions to Temporal */
-/* Version	M2021-08-26 set as independant file
+/** Additions to Temporal. 
+ * Add function toDateString() to Temporal.PlainDate's prototype, that gives a coded representation of a PlainDate object with its calendar. 
+ * Such a definition needs a separate file from calendars.js.
+ * @file 
+ * @version M2021-08-26
+ * @author Louis A. de Fouquières https://github.com/Louis-Aime
+ * @license MIT 2016-2022
+ * @requires Temporal
 */
-/* uses: Temporal
+/* Version	M2022-03-15 JSDoc
+	M2021-08-26 set as independant file
 */
 /* Copyright Louis A. de FOUQUIERES 2021 
 Permission is hereby granted, free of charge, to any person obtaining
@@ -25,7 +32,10 @@ or the use or other dealings in the software.
 Inquiries: www.calendriermilesien.org
 */
 'use strict'
-
+/** Give a coded representation of a PlainDate object with its calendar.
+ * @function
+ * @name Temporal.PlainDate.toDateString
+*/
 Temporal.PlainDate.prototype.toDateString = function () { 
 	let ey = this.eraYear,
 		yearParts = ey == undefined ? [this.year] : [ey, this.era];

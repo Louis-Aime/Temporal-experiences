@@ -1,5 +1,16 @@
-/* A selection of calendar for tries with Temporal
-/* Version	M2021-08-26 separate additions to Temporal
+/** A selection of calendar objects for tries with Temporal. 
+ * Class MilesianCalendar, JulianCalendar and WesternCalendar are required from calendars-temporal.js.
+ * Custom calendars are: milesian, julian, vatican, french, german, english, swiss.
+ * Global variables begin with: p (duration), l (options for units), v (overflow options), r(ecord), d(ate), md (month-day), ym (year-month)
+ * @file
+ * @version M2021-08-26
+ * @author Louis A. de Fouquières https://github.com/Louis-Aime
+ * @license MIT 2016-2022
+ * @requires Temporal
+ * @requires calendars-temporal.js
+*/ 
+/* Version	Version M2022-03-15 JSDoc
+	M2021-08-26 separate additions to Temporal
 	M2021-08-25 set as a module
 	M2021-06-13 duration options in singular, change rcerv (bug)
 	M2021-02-09 separate [era,eraYear] and [year]
@@ -7,8 +18,6 @@
 	M2020-11-23 - adapt to new names in Temporal
 	M2020-11-14 - add a few variables
 	M2020-11-13	eras in lowercase
-*/
-/* uses: Temporal, MilesianCalendar, JulianCalendar, WesternCalendar
 */
 /* Copyright Miletus 2020 - Louis A. de FOUQUIERES
 Permission is hereby granted, free of charge, to any person obtaining

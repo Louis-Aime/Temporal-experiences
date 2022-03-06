@@ -1,4 +1,18 @@
-/* A selection of calendars for tries with Temporal
+/** A selection of calendars for tries with Temporal
+New Temporal (https://github.com/tc39/proposal-temporal/pull/1245) checks year vs [era, eraYear] fields, and wants a function for .era, .eraYear and .monthCode.
+See also https://github.com/tc39/proposal-temporal/... #1231, #1235, #1306, #1307, #1308, #1310.
+monthCode is added to month.
+year and eraYear are 2 possible fields date fields given by the calendar reckoning system. 
+	year is the algebraic signed integer value of the year, without hole, used in all computations,
+	whereas eraYear denotes the integer value associated with an era indication.
+For calendars with eras, the code "e0", "e1" and possibly "e2" are used.
+See details of versions in code.
+ * @file
+ * @version M2021-08-25
+ * @author Louis A. de Fouquières https://github.com/Louis-Aime
+ * @license MIT 2016-2022
+ * @requires Temporal environment
+ * @requires chronos.je
 */
 /* Version	M2021-08-25
 		Set as module
@@ -33,22 +47,6 @@
 	M2020-11-25 suppress registers, do not memorise former date computations.
 	M2020-11-23 - all calendars defined in the same file. Do not subclass basic calendars. Personal toDateString enhanced. Subtract method suppressed. No time method (no harm)
 */
-/* Version note
-New Temporal (https://github.com/tc39/proposal-temporal/pull/1245) checks year vs [era, eraYear] fields, and wants a function for .era, .eraYear and .monthCode
-See also https://github.com/tc39/proposal-temporal/... #1231, #1235, #1306, #1307, #1308, #1310
-monthCode is added to month.
-year and eraYear are 2 possible fields date fields given by the calendar reckoning system. 
-	year is the algebraic signed integer value of the year, without hole, used in all computations,
-	whereas eraYear denotes the integer value associated with an era indication.
-For calendars with eras, the code "e0", "e1" and possibly "e2" are used.
-*/
-/* Required: 
-	chronos.js
-		class Cbcce
-		class WeekClock
-		class IsoCounter
-	Temporal environment
-*/
 /* Copyright Miletus 2020-2021 - Louis A. de FOUQUIERES
 Permission is hereby granted, free of charge, to any person obtaining
 a copy of this software and associated documentation files (the
@@ -72,13 +70,22 @@ Inquiries: www.calendriermilesien.org
 */
 "use strict";
 import { Cbcce, WeekClock, IsoCounter } from './chronos.js';
-const JDISO = new IsoCounter (-4713, 11, 24);		// Julian Day to ISO fields and the reverse
-/** Compute ISO8601 date figures from object resulting from getISOFields() or toIsoFields()
- * @param (Object): An object with the fields isoYear, isoMonth and isoDay.
- * @return (Array): [isoYear, isoMonth, isoDay].
+/** Instantiate tue IsoCounter class to convert a date in ISO to a Julian Day and the reverse
+ * @constant
 */
+const JDISO = new IsoCounter (-4713, 11, 24);
+/** A set of static check functions
+*/ 
 class TemporalCheck {
+/** Convert ISO8601 date figures from object resulting from getISOFields() or toIsoFields() to Array
+ * @param {Object} myFields 	- An object with the fields isoYear, isoMonth and isoDay.
+ * @return {Array} the ISO figures in the order: Year, Month, Day.
+*/
 	static toIsoArray ( myFields) { return [myFields.isoYear, myFields.isoMonth, myFields.isoDay] }
+/** Test and set overflow option
+ * @param {Object} option	- an object with an overflow field to be checked; if missing, set to "constrain".
+ * @return {String}	the corrected value
+*/
 	static checkOverflowOption (options) {
 		switch (options.overflow) {
 			case undefined : options.overflow = "constrain"; break;
@@ -88,9 +95,9 @@ class TemporalCheck {
 		return options.overflow;
 	}
 /** Check that year components are complete and do not contradict each other, return the year's scalar value or throws if incomplete
- * @param (Object) components: the date components.
- * @param (Array) eras: the list of eras for this calendar. It is assumed that eras[0] is backward, i.e. 1-y mode, and that year = eraYear all other eras.
- * @return (Number) : the scalar year value.
+ * @param {Object} components	- the date components..
+ * @param {Array} eras			- the list of eras for this calendar. It is assumed that eras[0] is backward, i.e. 1-y mode, and that year = eraYear all other eras.
+ * @return {Number} the scalar year value.
 */
 	static getYearFromFields (components, eras) {
 		if ( components.era != undefined) if (! eras.includes(components.era))
@@ -108,9 +115,9 @@ class TemporalCheck {
 			else return components.year;
 	}
 /** Check that month and monthCode components are complete and do not contradict each other, return the month's numeric value or throws if incomplete
- * @param (Object) components: the date components.
- * @param (RegExp) reg: the Rgular Expression (regexp) for a month code in this calendar
- * @return (Number): the month number.
+ * @param {Object} components	- he date components.
+ * @param {RegExp} reg			- the Regular Expression (regexp) for a month code in this calendar
+ * @return {Number} the month number.
 */
 	static getMonthFromFields (components, reg) {
 		let m = components.month;
@@ -123,27 +130,8 @@ class TemporalCheck {
 		return m
 	}
 }
-/**	Yield a string with the fields of a date in the specified calendar, not in ISO
-*/
-/* This cannot be exported this way
-export Temporal.PlainDate.prototype.toDateString = function () { 
-	let ey = this.eraYear,
-		yearParts = ey == undefined ? [this.year] : [ey, this.era];
-	return  "[" + this.calendar.id + "]" 
-		+ this.day + "." + this.monthCode + "."
-		+ new Intl.NumberFormat('en-US', {minimumIntegerDigits : 4, useGrouping : false}).format (yearParts[0])
-		+ (yearParts.length > 1 ? "." + yearParts[1] : "")
-}
-*/ 
-/* function toDateString deprecated - because user-defined as a method to Temporal.PlainDate.prototype
-function toDateString (date) {
-		let y = date.year;	// computed only once
-		let absYear = Math.abs(y);
-		return  "[" + date.calendar.id + "]" 
-			+ date.day + "_" + date.monthCode + "_"
-			+ ((y < 0) ? "-": "") 
-			+ ((absYear < 100) ? "0" : "") + ((absYear < 10) ? "0" : "") + absYear; 
-}
+/** isoWeeks.fieldsFromDate give the ISO week coordinate of any date.
+ * @const
 */
 export const isoWeeks = {	// The week fields of any date with the ISO rules
 	isoWeekClock : new WeekClock ({
@@ -162,10 +150,10 @@ export const isoWeeks = {	// The week fields of any date with the ISO rules
 	}
 }
 
-export class MilesianCalendar {
-/** Constructor for the Milesian calendar
- * @param (string) id : the name when displaying an ISO string
+/** Milesian calendars
+ * @param {string} id	- the name of the calendar
 */
+export class MilesianCalendar {
 	constructor (id) {
 		this.id = id;
 	}
@@ -387,12 +375,12 @@ export class MilesianCalendar {
 	}
 } // end of calendar object/class
 
-export class JulianCalendar  {
-/**	Constructor fo julian calendar variants
- * @param (string) id : the calendar name
- * @param (number) startOfWeek : week begins on Sunday (0) or on Monday (1) or any other day (0 to 6).
- * @param (number) w1Day : the day in the first month that is always in the week 1 of year, default 4 meaning 4 January.
+/**	Julian calendars
+ * @param {string} id			- the name when displaying an ISO string
+ * @param {number} startOfWeek 	- week begins on Sunday (0) or on Monday (1) or any other day (0 to 6).
+ * @param {number} w1Day		- the day in the first month that is always in the week 1 of year, default 4 meaning 4 January.
 */
+export class JulianCalendar  {
 	constructor (id, startOfWeek=0, w1Day=4) {
 		this.startOfWeek = startOfWeek;
 		this.w1Day = w1Day;	// the day number in January that characterises the first week, 4 by default.
@@ -632,16 +620,16 @@ export class JulianCalendar  {
 	}
 } // end of calendar class
 
-export class WesternCalendar { 
 /**	Class that handle the switching from Julian to Gregorian calendar with the following smoothing conventions:
  * The day of switching is the first day of a new era.
  * The year and month where the switching takes place remain the same, with, by exception, a lesser number of days; daysInMonth, daysInYear and dayOfYear are specially computed.
  * Switching takes place on or after 1582-10-15 (first day of Gregorian calendar in Rome), and on or before 3900-02-28 (last day where less than 28 days are skipped).
  * inLeapYear is considered as expected at the date of computation.If the switching date is 1700-03-01, inLeapYear is true for dates from 1 Jan 1700 to 18 Feb 1700 Julian.
  * Week figures are computed under the ISO rule, but taking the Julian resp. Gregorian calendar at current date as a reference.
- * @param (string) id : name of calendar
- * @param (string) switching date: first Gregorian date in this calendar
+ * @param {string} id				- the name of calendar when displaying an ISO string
+ * @param {string} switchingDate 	- the first Gregorian date in this calendar
 */
+export class WesternCalendar { 
 	constructor (id, switchingDate) {
 		this.id = id;
 		this.switchingDate = Temporal.PlainDate.from(switchingDate).withCalendar("iso8601");	//first date where Gregorien calendar is used
