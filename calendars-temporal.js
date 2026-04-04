@@ -14,7 +14,9 @@ See details of versions in code.
  * @requires Temporal environment
  * @requires chronos.je
 */
-/* Version	M2021-08-25
+/* Version	
+	M2026-04-15 Adapt to released version of Temporal
+	M2021-08-25
 		Set as module
 		Refer to chronos as a module, use Cbcce
 	M2021-06-19 
@@ -47,7 +49,7 @@ See details of versions in code.
 	M2020-11-25 suppress registers, do not memorise former date computations.
 	M2020-11-23 - all calendars defined in the same file. Do not subclass basic calendars. Personal toDateString enhanced. Subtract method suppressed. No time method (no harm)
 */
-/* Copyright Miletus 2020-2021 - Louis A. de FOUQUIERES
+/* Copyright Miletus 2020-2026 - Louis A. de FOUQUIERES
 Permission is hereby granted, free of charge, to any person obtaining
 a copy of this software and associated documentation files (the
 "Software"), to deal in the Software without restriction, including
@@ -70,7 +72,15 @@ Inquiries: www.calendriermilesien.org
 */
 "use strict";
 import { Cbcce, WeekClock, IsoCounter } from './chronos.js';
-/** Instantiate tue IsoCounter class to convert a date in ISO to a Julian Day and the reverse
+
+/**
+Reconstruct getISOFields method
+*/
+Temporal.PlainDate.prototype.getISOFields = function () {
+	return {isoYear : this.year, isoMonth : this.month, isoDay : this.Day}
+}
+
+/** Instantiate the IsoCounter class to convert a date in ISO to a Julian Day and the reverse
  * @constant
 */
 const JDISO = new IsoCounter (-4713, 11, 24);
