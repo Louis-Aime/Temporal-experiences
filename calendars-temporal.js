@@ -77,7 +77,7 @@ import { Cbcce, WeekClock, IsoCounter } from './chronos.js';
 Reconstruct getISOFields method
 */
 Temporal.PlainDate.prototype.getISOFields = function () {
-	return {isoYear : this.year, isoMonth : this.month, isoDay : this.Day}
+	return {isoYear : this.withCalendar('iso8601').year, isoMonth : this.withCalendar('iso8601').month, isoDay : this.withCalendar('iso8601').Day}
 }
 
 /** Instantiate the IsoCounter class to convert a date in ISO to a Julian Day and the reverse
